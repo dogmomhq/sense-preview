@@ -756,9 +756,10 @@
 
         const result = msg.you.result; // 'win', 'loss', 'draw'
         const myAnswer = msg.you.answer;
-        // Use client's frozen elapsed if available (what the player actually saw),
-        // fall back to server time for timeouts / edge cases
-        const myTime = G.frozenElapsed != null ? G.frozenElapsed : msg.you.time;
+        // Server time is authoritative and fair (network delay cancels out).
+        // Use it for both players so the recap numbers are consistent and
+        // match the actual win/loss decision.
+        const myTime = msg.you.time;
         const oppTime = msg.opponent.time;
         const correctIdx = msg.correctIdx;
         const correctAnswer = msg.correctAnswer;
