@@ -359,10 +359,6 @@
             </div>
         </div>
 
-        <!-- DEBUG LOG -->
-        <div id="debugToggle" style="position:fixed;bottom:8px;right:8px;z-index:9999;background:#222;color:#0f0;font-size:10px;padding:4px 8px;border-radius:4px;cursor:pointer;opacity:0.6;" onclick="document.getElementById('debugPanel').style.display=document.getElementById('debugPanel').style.display==='none'?'block':'none'">LOG</div>
-        <div id="debugPanel" style="display:none;position:fixed;bottom:30px;right:8px;z-index:9998;background:rgba(0,0,0,0.9);color:#0f0;font-size:9px;font-family:monospace;padding:8px;border-radius:6px;max-height:40vh;overflow-y:auto;width:280px;word-break:break-all;"></div>
-
         <!-- COUNTDOWN -->
         <div class="countdown-overlay" id="countdownOverlay">
             <div class="countdown-number" id="countdownNumber">3</div>
@@ -588,10 +584,26 @@
         const ts = new Date().toISOString().substr(11,12);
         const entry = ts + ' ' + msg;
         debugLog.push(entry);
-        if (debugLog.length > 100) debugLog.shift();
-        const panel = document.getElementById('debugPanel');
-        if (panel) panel.innerHTML = debugLog.map(l => '<div>' + l + '</div>').join('');
-        console.log('[SENSE]', entry);
+        if (debugLog.length > 200) debugLog.shift();
+    }
+
+    function pushLog() {
+        if (!mqttClient || !mqttClient.connected) return;
+        const logData = {
+            timestamp: new Date().toISOString(),
+            playerName: G.playerName,
+            opponentName: G.opponentName,
+            isHost: G.isHost,
+            gameId: G.gameId,
+            round: G.roundNumber,
+            tier: G.selectedTier,
+            playerAnswer: G.playerAnswer,
+            playerTime: G.playerTime,
+            opponentAnswer: G.opponentAnswer,
+            opponentTime: G.opponentTime,
+            events: debugLog.slice()
+        };
+        mqttClient.publish('sense-game-logs', JSON.stringify(logData), { qos: 1 });
     }
 
     function clearAllTimers() {
@@ -1053,6 +1065,7 @@
     function finishGame() {
         dlog('finishGame pAns=' + G.playerAnswer + ' pT=' + G.playerTime + ' oAns=' + G.opponentAnswer + ' oT=' + G.opponentTime);
         clearAllTimers();
+        pushLog();
         const settlement = settleGame(G.playerAnswer, G.playerTime, G.opponentAnswer, G.opponentTime, G.correctShuffledIdx);
         showResults(settlement);
     }
