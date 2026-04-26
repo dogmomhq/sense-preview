@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Common Sense or Nonsense? — 1v1 Trivia Wagering</title>
-    <script src="https://unpkg.com/mqtt@5.3.0/dist/mqtt.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -131,14 +130,6 @@
         .tier-card.selected { border-color: var(--accent); background: linear-gradient(135deg, rgba(0, 212, 170, 0.1), rgba(0, 212, 170, 0.05)); box-shadow: 0 12px 32px rgba(0, 212, 170, 0.2), inset 0 0 20px rgba(0, 212, 170, 0.1); }
         .tier-amount { font-size: 48px; font-weight: 700; color: var(--accent); margin-bottom: 8px; }
         .tier-label { font-size: 13px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; }
-        .find-match-btn {
-            background: linear-gradient(135deg, var(--accent), var(--accent-dark));
-            border: none; color: #000; padding: 16px 48px; border-radius: 8px;
-            font-size: 16px; font-weight: 700; cursor: pointer;
-            transition: all 0.3s ease; width: 100%; max-width: 300px;
-        }
-        .find-match-btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 12px 32px rgba(0, 212, 170, 0.4); }
-        .find-match-btn:disabled { opacity: 0.6; cursor: not-allowed; }
 
         /* WAITING FOR FRIEND */
         .waiting-content { text-align: center; max-width: 500px; }
@@ -320,7 +311,6 @@
                     <div class="tier-card" data-tier="3"><div class="tier-amount">$100</div><div class="tier-label">Tier 3</div></div>
                     <div class="tier-card" data-tier="4"><div class="tier-amount">$1,000</div><div class="tier-label">Tier 4</div></div>
                 </div>
-                <!-- Tier tap goes straight to next screen -->
             </div>
         </div>
 
@@ -412,146 +402,49 @@
     </div>
 
     <script>
-    // ============ GAME STATE ============
+    // ======================================================
+    // SENSE CLIENT — thin WebSocket renderer
+    // Server holds all game logic, questions, answers, timing.
+    // Client only: connects, renders, sends answer index.
+    // ======================================================
+
+    // ---- SERVER URL (change after Railway deploy) ----
+    const SERVER_URL = 'wss://web-production-8866e.up.railway.app';
+
+    const TIME_LIMIT_MS = 10000;
+    const CIRCUMFERENCE = 2 * Math.PI * 54;
+
+    // ---- State ----
     const G = {
         screen: 'landing',
         walletConnected: false,
-        walletAddress: null,
         playerName: null,
         opponentName: null,
         selectedTier: null,
         selectedMode: null,
         isHost: false,
         gameId: null,
-        peer: null,
-        conn: null,
-        playerAnswer: null,
-        playerTime: null,
-        opponentAnswer: null,
-        opponentTime: null,
-        currentQuestion: null,
-        shuffledOptions: null,
-        correctShuffledIdx: null,
+        answered: false,
+        questionStartTime: null,
         stats: { wins: 0, draws: 0, losses: 0 },
         timerInterval: null,
         elapsedInterval: null,
         countdownTimeout: null,
-        timeRemaining: 10000,
-        questionStartTime: null,
-        wantsRematch: false,
-        opponentWantsRematch: false,
-        roundNumber: 1,
-        opponentTimeout: null,
-        answerRetry: null,
     };
 
-    const TIME_LIMIT_MS = 10000;
-    const CIRCUMFERENCE = 2 * Math.PI * 54;
+    let ws = null;
 
-    // ============ QUESTIONS (50 animal image questions) ============
-    const QUESTIONS = [
-        { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/3/37/African_Bush_Elephant.jpg/500px-African_Bush_Elephant.jpg", options: ["Rhinoceros", "Elephant", "Hippopotamus", "Zebra"], correct: 1 },
-        { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/9/9e/Giraffe_Mikumi_National_Park.jpg/500px-Giraffe_Mikumi_National_Park.jpg", options: ["Zebra", "Giraffe", "Camel", "Ostrich"], correct: 1 },
-        { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/0/07/Emperor_Penguin_Manchot_empereur.jpg", options: ["Puffin", "Penguin", "Duck", "Dolphin"], correct: 1 },
-        { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/8/84/Greater_flamingo_%28Phoenicopterus_roseus%29.jpg/500px-Greater_flamingo_%28Phoenicopterus_roseus%29.jpg", options: ["Parrot", "Flamingo", "Toucan", "Eagle"], correct: 1 },
-        { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/1/10/Tursiops_truncatus_01.jpg/960px-Tursiops_truncatus_01.jpg", options: ["Whale", "Dolphin", "Shark", "Seal"], correct: 1 },
-        { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0d/Kangaroo_and_joey03.jpg/500px-Kangaroo_and_joey03.jpg", options: ["Wallaby", "Kangaroo", "Wombat", "Koala"], correct: 1 },
-        { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3c/Giant_Panda_2004-03-2.jpg/960px-Giant_Panda_2004-03-2.jpg", options: ["Bear", "Panda", "Koala", "Raccoon"], correct: 1 },
-        { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e3/Plains_Zebra_Equus_quagga.jpg/500px-Plains_Zebra_Equus_quagga.jpg", options: ["Horse", "Zebra", "Donkey", "Giraffe"], correct: 1 },
-        { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/5/57/Octopus2.jpg/960px-Octopus2.jpg", options: ["Jellyfish", "Octopus", "Starfish", "Crab"], correct: 1 },
-        { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c5/Peacock_Plumage.jpg/960px-Peacock_Plumage.jpg", options: ["Pheasant", "Peacock", "Turkey", "Crane"], correct: 1 },
-        { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/49/Koala_climbing_tree.jpg/960px-Koala_climbing_tree.jpg", options: ["Lemur", "Koala", "Panda", "Sloth"], correct: 1 },
-        { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5f/Bradypus_variegatus.jpg/960px-Bradypus_variegatus.jpg", options: ["Koala", "Sloth", "Lemur", "Monkey"], correct: 1 },
-        { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/7/72/Igel.JPG/960px-Igel.JPG", options: ["Mouse", "Hedgehog", "Shrew", "Mole"], correct: 1 },
-        { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4b/Hippocampus.jpg/500px-Hippocampus.jpg", options: ["Pipefish", "Seahorse", "Fish", "Shrimp"], correct: 1 },
-        { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/1/11/Ramphastos_toco.jpg", options: ["Parrot", "Toucan", "Woodpecker", "Macaw"], correct: 1 },
-        { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/2/2d/Mountain_Gorilla.jpg/500px-Mountain_Gorilla.jpg", options: ["Chimpanzee", "Gorilla", "Monkey", "Gibbon"], correct: 1 },
-        { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4f/Ursus_maritimus_Steve_Amstrup.jpg/960px-Ursus_maritimus_Steve_Amstrup.jpg", options: ["Grizzly Bear", "Polar Bear", "Panda", "Seal"], correct: 1 },
-        { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/2/23/Bubo_virginianus_06.jpg/500px-Bubo_virginianus_06.jpg", options: ["Hawk", "Owl", "Eagle", "Falcon"], correct: 1 },
-        { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/f/f6/AxolotlBE.jpg", options: ["Salamander", "Axolotl", "Newt", "Tadpole"], correct: 1 },
-        { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/3/32/Ornithorhynchus.jpg/960px-Ornithorhynchus.jpg", options: ["Mongoose", "Platypus", "Otter", "Mole"], correct: 1 },
-        { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/8/83/Porcupine-BioDome.jpg/500px-Porcupine-BioDome.jpg", options: ["Mouse", "Porcupine", "Squirrel", "Mole"], correct: 1 },
-        { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b4/Nine-banded_Armadillo.jpg/960px-Nine-banded_Armadillo.jpg", options: ["Anteater", "Armadillo", "Aardvark", "Badger"], correct: 1 },
-        { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/b/bb/Asterias_rubens.jpg/960px-Asterias_rubens.jpg", options: ["Sea Urchin", "Starfish", "Jellyfish", "Clam"], correct: 1 },
-        { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d0/Ceratotherium_simum.jpg/960px-Ceratotherium_simum.jpg", options: ["Hippopotamus", "Rhinoceros", "Elephant", "Anteater"], correct: 1 },
-        { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/9/98/Hippo_at_dawn.jpg/960px-Hippo_at_dawn.jpg", options: ["Rhinoceros", "Hippopotamus", "Elephant", "Seal"], correct: 1 },
-        { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/c/ce/Noaa-walrus22.jpg/960px-Noaa-walrus22.jpg", options: ["Penguin", "Walrus", "Hippopotamus", "Manatee"], correct: 1 },
-        { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/8/8b/Moose_superior.jpg/960px-Moose_superior.jpg", options: ["Elk", "Moose", "Deer", "Caribou"], correct: 1 },
-        { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/8/8d/American_bison_k5680-1.jpg/960px-American_bison_k5680-1.jpg", options: ["Buffalo", "Bison", "Cattle", "Yak"], correct: 1 },
-        { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/b/bd/Nile_crocodile_head.jpg/960px-Nile_crocodile_head.jpg", options: ["Lizard", "Crocodile", "Turtle", "Snake"], correct: 1 },
-        { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/e/ec/Iguana_iguana_Portoviejo_01.jpg/960px-Iguana_iguana_Portoviejo_01.jpg", options: ["Lizard", "Iguana", "Monitor", "Gecko"], correct: 1 },
-        { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/3/38/Calypte_anna.jpg/960px-Calypte_anna.jpg", options: ["Sparrow", "Hummingbird", "Finch", "Swallow"], correct: 1 },
-        { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/1/1e/Bald_Eagle_Portrait.jpg/500px-Bald_Eagle_Portrait.jpg", options: ["Hawk", "Eagle", "Falcon", "Vulture"], correct: 1 },
-        { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/7/77/Big-eared-townsend-fledermaus.jpg", options: ["Rodent", "Bat", "Bird", "Mole"], correct: 1 },
-        { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/1/15/Sea_otter_cropped.jpg", options: ["Mink", "Otter", "Weasel", "Badger"], correct: 1 },
-        { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/6/6b/American_Beaver.jpg", options: ["Muskrat", "Beaver", "Porcupine", "Mink"], correct: 1 },
-        { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/f/fe/Procyon_lotor_%28Common_raccoon%29.jpg/960px-Procyon_lotor_%28Common_raccoon%29.jpg", options: ["Possum", "Raccoon", "Coati", "Badger"], correct: 1 },
-        { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/5/57/Striped_Skunk.jpg/960px-Striped_Skunk.jpg", options: ["Badger", "Skunk", "Weasel", "Possum"], correct: 1 },
-        { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/8/8a/Pindsvinefisk_Diodon_holocanthus.jpg/960px-Pindsvinefisk_Diodon_holocanthus.jpg", options: ["Blowfish", "Pufferfish", "Filefish", "Triggerfish"], correct: 1 },
-        { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/a/ad/Amphiprion_ocellaris_%28Clown_anemonefish%29_by_Nick_Hobgood.jpg/960px-Amphiprion_ocellaris_%28Clown_anemonefish%29_by_Nick_Hobgood.jpg", options: ["Damselfish", "Clownfish", "Goby", "Angelfish"], correct: 1 },
-        { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Dungeness_crab.jpg/500px-Dungeness_crab.jpg", options: ["Hermit Crab", "Crab", "Spider", "Scorpion"], correct: 1 },
-        { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/8/87/Chamaeleo_calyptratus.jpg", options: ["Lizard", "Chameleon", "Snake", "Gecko"], correct: 1 },
-        { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/9/9f/Red_Fox.jpg/960px-Red_Fox.jpg", options: ["Wolf", "Red Fox", "Coyote", "Dog"], correct: 1 },
-        { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/8/82/Monodon_monoceros.jpg/960px-Monodon_monoceros.jpg", options: ["Whale", "Narwhal", "Dolphin", "Beluga"], correct: 1 },
-        { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f0/Trichechus_manatus.jpg/960px-Trichechus_manatus.jpg", options: ["Dolphin", "Manatee", "Whale", "Walrus"], correct: 1 },
-        { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4d/Aurelia_aurita.jpg/960px-Aurelia_aurita.jpg", options: ["Anemone", "Jellyfish", "Coral", "Starfish"], correct: 1 },
-        { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/1/1f/African_Grey_Parrot.jpg/960px-African_Grey_Parrot.jpg", options: ["Toucan", "Parrot", "Macaw", "Cockatoo"], correct: 1 },
-        { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/c/cc/Camelus_dromedarius.jpg/960px-Camelus_dromedarius.jpg", options: ["Horse", "Camel", "Deer", "Goat"], correct: 1 },
-        { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d4/Giant_tortoise.jpg/960px-Giant_tortoise.jpg", options: ["Lizard", "Tortoise", "Snake", "Frog"], correct: 1 },
-        { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/6/6e/Homarus_americanus.jpg/960px-Homarus_americanus.jpg", options: ["Crawfish", "Lobster", "Shrimp", "Crayfish"], correct: 1 },
-        { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/9/94/Helix_aspersa.jpg/960px-Helix_aspersa.jpg", options: ["Slug", "Snail", "Clam", "Oyster"], correct: 1 }
-    ];
-
-    // ============ SEEDED RNG ============
-    // Both players get same question + shuffle from same game ID
-    function seededRng(seed) {
-        let s = 0;
-        for (let i = 0; i < seed.length; i++) { s = ((s << 5) - s + seed.charCodeAt(i)) | 0; }
-        return function() { s = (s * 1664525 + 1013904223) | 0; return (s >>> 0) / 4294967296; };
-    }
-
-    function seededShuffle(arr, rng) {
-        const s = [...arr];
-        for (let i = s.length - 1; i > 0; i--) {
-            const j = Math.floor(rng() * (i + 1));
-            [s[i], s[j]] = [s[j], s[i]];
-        }
-        return s;
-    }
-
-    function getQuestionForGame(gameId) {
-        const rng = seededRng(gameId);
-        const qIdx = Math.floor(rng() * QUESTIONS.length);
-        const q = QUESTIONS[qIdx];
-        const shuffled = seededShuffle(q.options, rng);
-        const correctIdx = shuffled.indexOf(q.options[q.correct]);
-        return { question: q, shuffledOptions: shuffled, correctShuffledIdx: correctIdx };
-    }
-
-    // ============ UTILITY ============
-    function generateGameId() {
-        const chars = 'abcdefghijkmnpqrstuvwxyz23456789';
-        let id = '';
-        for (let i = 0; i < 6; i++) id += chars[Math.floor(Math.random() * chars.length)];
-        return id;
-    }
-
+    // ---- Utility ----
     function generatePlayerName() {
-        const adj = ['Swift', 'Brave', 'Clever', 'Sly', 'Bold', 'Keen', 'Wild', 'Calm', 'Sharp', 'Quick'];
-        const noun = ['Fox', 'Owl', 'Bear', 'Wolf', 'Hawk', 'Lion', 'Deer', 'Seal', 'Crow', 'Lynx'];
-        return adj[Math.floor(Math.random() * adj.length)] + noun[Math.floor(Math.random() * noun.length)] + Math.floor(Math.random() * 100);
+        const adj = ['Swift','Brave','Clever','Sly','Bold','Keen','Wild','Calm','Sharp','Quick'];
+        const noun = ['Fox','Owl','Bear','Wolf','Hawk','Lion','Deer','Seal','Crow','Lynx'];
+        return adj[Math.floor(Math.random()*adj.length)] + noun[Math.floor(Math.random()*noun.length)] + Math.floor(Math.random()*100);
     }
 
-    function settleGame(pAnswer, pTime, oAnswer, oTime, correctIdx) {
-        const pCorrect = pAnswer === correctIdx;
-        const oCorrect = oAnswer === correctIdx;
-        if (pCorrect && !oCorrect) return { result: 'win', reason: 'correct_answer' };
-        if (!pCorrect && oCorrect) return { result: 'loss', reason: 'wrong_answer' };
-        if (!pCorrect && !oCorrect) return { result: 'draw', reason: 'both_wrong' };
-        const diff = Math.abs(pTime - oTime);
-        if (diff < 10) return { result: 'draw', reason: 'same_speed' };
-        if (pTime < oTime) return { result: 'win', reason: 'faster' };
-        return { result: 'loss', reason: 'slower' };
+    function formatTime(ms) { return (ms / 1000).toFixed(2) + 's'; }
+
+    function getReasonText(reason) {
+        return { correct_answer: 'Correct answer wins', both_wrong: 'Both answered incorrectly', same_speed: 'Both correct, same speed', faster: 'Faster answer wins' }[reason] || reason;
     }
 
     function calculatePayout(result, wager) {
@@ -560,13 +453,7 @@
         return '0.00';
     }
 
-    function getReasonText(reason) {
-        return { correct_answer: 'You answered correctly', wrong_answer: 'Opponent answered correctly', both_wrong: 'Both answered incorrectly', same_speed: 'Both correct, same speed', faster: 'Both correct — you were faster', slower: 'Both correct — opponent was faster' }[reason] || reason;
-    }
-
-    function formatTime(ms) { return (ms / 1000).toFixed(2) + 's'; }
-
-    // ============ SCREEN TRANSITIONS ============
+    // ---- Screen transitions ----
     function showScreen(name) {
         const cur = document.getElementById(G.screen);
         const next = document.getElementById(name);
@@ -578,298 +465,110 @@
         }, 300);
     }
 
-    // ============ DEBUG LOG ============
-    const debugLog = [];
-    function dlog(msg) {
-        const ts = new Date().toISOString().substr(11,12);
-        const entry = ts + ' ' + msg;
-        debugLog.push(entry);
-        if (debugLog.length > 200) debugLog.shift();
-    }
-
-    function pushLog() {
-        if (!mqttClient || !mqttClient.connected) return;
-        const logData = {
-            timestamp: new Date().toISOString(),
-            playerName: G.playerName,
-            opponentName: G.opponentName,
-            isHost: G.isHost,
-            gameId: G.gameId,
-            round: G.roundNumber,
-            tier: G.selectedTier,
-            playerAnswer: G.playerAnswer,
-            playerTime: G.playerTime,
-            opponentAnswer: G.opponentAnswer,
-            opponentTime: G.opponentTime,
-            events: debugLog.slice()
-        };
-        mqttClient.publish('sense-game-logs', JSON.stringify(logData), { qos: 1 });
-    }
-
     function clearAllTimers() {
         if (G.timerInterval) { clearInterval(G.timerInterval); G.timerInterval = null; }
         if (G.elapsedInterval) { clearInterval(G.elapsedInterval); G.elapsedInterval = null; }
         if (G.countdownTimeout) { clearTimeout(G.countdownTimeout); G.countdownTimeout = null; }
-        if (G.opponentTimeout) { clearTimeout(G.opponentTimeout); G.opponentTimeout = null; }
-        if (G.answerRetry) { clearInterval(G.answerRetry); G.answerRetry = null; }
     }
 
-    // ============ MQTT CONNECTION (HiveMQ free public broker) ============
-    let mqttClient = null;
-    let mqttTopic = null; // stays constant across rematches
-
-    function send(data) {
-        if (!mqttClient || !mqttTopic) return;
-        mqttClient.publish(mqttTopic, JSON.stringify(data), { qos: 1 });
+    // ---- WebSocket ----
+    function connectWS(callback) {
+        if (ws && ws.readyState === WebSocket.OPEN) { callback(); return; }
+        ws = new WebSocket(SERVER_URL);
+        ws.onopen = () => { console.log('WS connected'); callback(); };
+        ws.onclose = () => { console.log('WS closed'); handleDisconnect(); };
+        ws.onerror = (e) => { console.error('WS error', e); };
+        ws.onmessage = (e) => {
+            try { handleServerMessage(JSON.parse(e.data)); }
+            catch(err) { console.error('Bad msg', err); }
+        };
     }
 
-    function onMessage(data) {
-        // Ignore our own messages
-        if (data.from === G.playerName) return;
-        dlog('RECV ' + data.type + ' from=' + data.from + (data.time ? ' t=' + data.time : '') + ' screen=' + G.screen);
+    function wsSend(msg) {
+        if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg));
+    }
 
-        if (data.type === 'joined') {
-            G.opponentName = data.name;
-            // Only react if we're still on the waiting screen (prevents double-start from retry pings)
-            if (G.isHost && G.screen === 'waiting') {
-                if (hostPingInterval) { clearInterval(hostPingInterval); hostPingInterval = null; }
-                document.getElementById('connectionStatus').textContent = `${G.opponentName} connected!`;
+    function handleDisconnect() {
+        // If we're mid-game, show error
+        if (G.screen === 'play' || G.screen === 'waiting' || G.screen === 'joining') {
+            // Try to reconnect once
+            setTimeout(() => {
+                if (!ws || ws.readyState !== WebSocket.OPEN) {
+                    alert('Connection lost. Returning to home.');
+                    clearAllTimers();
+                    showScreen('landing');
+                }
+            }, 3000);
+        }
+    }
+
+    // ---- Server message handler ----
+    function handleServerMessage(msg) {
+        console.log('Server:', msg.type, msg);
+
+        switch (msg.type) {
+            case 'created':
+                // Host got game ID back
+                G.gameId = msg.gameId;
+                const link = window.location.origin + window.location.pathname + '#' + msg.gameId;
+                document.getElementById('shareLink').textContent = link;
+                document.getElementById('connectionStatus').textContent = 'Waiting for opponent...';
+                document.getElementById('connectionStatus').className = 'connection-status waiting';
+                showScreen('waiting');
+                break;
+
+            case 'opponent-joined':
+                // Host: guest arrived
+                G.opponentName = msg.name;
+                document.getElementById('connectionStatus').textContent = msg.name + ' connected!';
                 document.getElementById('connectionStatus').className = 'connection-status connected';
-                // startGame() will send the 'start' message — don't send it here too
-                setTimeout(() => {
-                    startGame();
-                }, 1000);
-            }
-        }
-        if (data.type === 'start') {
-            if (!G.isHost && (G.screen === 'joining' || G.screen === 'waiting')) {
-                if (joinRetryInterval) { clearInterval(joinRetryInterval); joinRetryInterval = null; }
-                G.opponentName = data.hostName;
-                G.selectedTier = data.tier;
-                startGame();
-            }
-        }
-        if (data.type === 'answer') {
-            if (G.opponentAnswer !== null) return; // already got it, ignore retries
-            G.opponentAnswer = data.answerIndex;
-            G.opponentTime = data.time;
-            if (G.opponentTimeout) { clearTimeout(G.opponentTimeout); G.opponentTimeout = null; }
-            if (G.answerRetry) { clearInterval(G.answerRetry); G.answerRetry = null; }
-            if (G.playerAnswer !== null) {
-                setTimeout(() => finishGame(), 800);
-            }
-        }
-        if (data.type === 'rematch') {
-            G.opponentWantsRematch = true;
-            if (G.wantsRematch) {
-                startRematch();
-            } else {
-                // Show that opponent is waiting
+                break;
+
+            case 'joined':
+                // Guest: confirmed in room
+                G.opponentName = msg.hostName;
+                G.selectedTier = msg.tier;
+                document.getElementById('joinStatus').textContent = 'Connected! Starting...';
+                document.getElementById('joinStatus').className = 'connection-status connected';
+                break;
+
+            case 'round-start':
+                startRound(msg);
+                break;
+
+            case 'opponent-answered':
+                document.getElementById('waitingMessage').innerHTML = '<span class="spinner"></span>Opponent answered — waiting for results...';
+                break;
+
+            case 'result':
+                showResult(msg);
+                break;
+
+            case 'opponent-wants-rematch':
                 const btn = document.getElementById('playAgainBtn');
-                btn.textContent = 'Opponent wants rematch — tap to play!';
-                btn.style.animation = 'pulse 1s infinite';
-            }
-        }
-        if (data.type === 'rematch-start') {
-            // Guest receives new game params from host — only act if on results screen
-            if (G.screen !== 'results') return;
-            G.gameId = data.gameId;
-            G.selectedTier = data.tier;
-            G.roundNumber = data.round;
-            document.getElementById('roundIndicator').textContent = 'Round ' + G.roundNumber;
-            document.getElementById('roundIndicator').style.display = 'block';
-            startGame();
-        }
-    }
-
-    function connectMQTT(gameId, callback) {
-        mqttTopic = 'sense-game/' + gameId; // lock topic for this session
-        // Use HiveMQ free public broker over secure WebSocket
-        const url = 'wss://broker.hivemq.com:8884/mqtt';
-        const clientId = 'sense_' + Math.random().toString(36).substr(2, 8);
-
-        if (mqttClient) {
-            try { mqttClient.end(true); } catch(e) {}
-        }
-
-        mqttClient = mqtt.connect(url, {
-            clientId: clientId,
-            clean: true,
-            connectTimeout: 8000,
-            reconnectPeriod: 2000,
-        });
-
-        mqttClient.on('connect', () => {
-            console.log('MQTT connected as', clientId);
-            mqttClient.subscribe(mqttTopic, { qos: 1 }, (err) => {
-                if (err) {
-                    console.error('Subscribe error:', err);
-                    return;
+                if (btn.dataset.waiting !== 'true') {
+                    btn.textContent = 'Opponent wants rematch — tap to play!';
+                    btn.style.animation = 'pulse 1s infinite';
                 }
-                console.log('Subscribed to', mqttTopic);
-                if (callback) callback();
-            });
-        });
+                G.opponentWantsRematch = true;
+                break;
 
-        mqttClient.on('message', (t, msg) => {
-            try {
-                const data = JSON.parse(msg.toString());
-                onMessage(data);
-            } catch(e) {
-                console.error('Bad message:', e);
-            }
-        });
-
-        mqttClient.on('error', (err) => {
-            dlog('MQTT ERROR: ' + err.message);
-        });
-
-        mqttClient.on('reconnect', () => {
-            dlog('MQTT RECONNECTING');
-        });
-
-        mqttClient.on('close', () => {
-            dlog('MQTT CLOSED');
-        });
-
-        mqttClient.on('offline', () => {
-            dlog('MQTT OFFLINE');
-        });
-    }
-
-    let hostPingInterval = null;
-
-    function createHostGame(gameId) {
-        G.gameId = gameId;
-        const link = window.location.origin + window.location.pathname + '#' + gameId;
-        document.getElementById('shareLink').textContent = link;
-        showScreen('waiting');
-        document.getElementById('connectionStatus').textContent = 'Connecting...';
-
-        connectMQTT(gameId, () => {
-            document.getElementById('connectionStatus').textContent = 'Waiting for opponent...';
-            document.getElementById('connectionStatus').className = 'connection-status waiting';
-            // Keep pinging so guest knows host is alive
-            send({ type: 'host-ready', name: G.playerName, from: G.playerName });
-            hostPingInterval = setInterval(() => {
-                if (G.screen !== 'waiting') {
-                    clearInterval(hostPingInterval); hostPingInterval = null; return;
-                }
-                send({ type: 'host-ready', name: G.playerName, from: G.playerName });
-            }, 2000);
-        });
-    }
-
-    let joinRetryInterval = null;
-
-    function joinAsGuest(gameId) {
-        showScreen('joining');
-        G.gameId = gameId;
-        document.getElementById('joinStatus').textContent = 'Connecting...';
-
-        connectMQTT(gameId, () => {
-            document.getElementById('joinStatus').textContent = 'Connected! Joining game...';
-            document.getElementById('joinStatus').className = 'connection-status connected';
-            // Tell host we joined — retry every 2s until game starts
-            send({ type: 'joined', name: G.playerName, from: G.playerName });
-            joinRetryInterval = setInterval(() => {
+            case 'opponent-disconnected':
                 if (G.screen === 'play' || G.screen === 'results') {
-                    clearInterval(joinRetryInterval); joinRetryInterval = null; return;
+                    alert('Opponent disconnected.');
+                    clearAllTimers();
+                    showScreen('landing');
                 }
-                send({ type: 'joined', name: G.playerName, from: G.playerName });
-            }, 2000);
-        });
-    }
+                break;
 
-    // ============ LANDING ============
-    document.getElementById('connectBtn').addEventListener('click', () => {
-        if (G.walletConnected) return;
-        G.walletConnected = true;
-        G.playerName = generatePlayerName();
-        G.walletAddress = G.playerName;
-        document.getElementById('walletDisconnected').style.display = 'none';
-        document.getElementById('walletConnected').classList.add('show');
-        document.getElementById('walletAddress').textContent = G.playerName;
-        document.getElementById('modeSection').classList.add('show');
-        document.getElementById('connectBtn').disabled = true;
-    });
-
-    document.querySelectorAll('.mode-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            G.selectedMode = e.target.dataset.mode;
-            if (G.selectedMode === 'friend') {
-                showScreen('setup');
-            } else {
-                // Random match — simulate opponent like before
-                G.selectedMode = 'random';
-                showScreen('setup');
-            }
-        });
-    });
-
-    // ============ SETUP ============
-    document.querySelectorAll('.tier-card').forEach(card => {
-        card.addEventListener('click', (e) => {
-            const target = e.target.closest('.tier-card');
-            if (!target) return;
-            document.querySelectorAll('.tier-card').forEach(c => c.classList.remove('selected'));
-            target.classList.add('selected');
-            G.selectedTier = parseInt(target.dataset.tier);
-
-            // Go straight to next screen — instant
-            if (G.selectedMode === 'friend') {
-                G.isHost = true;
-                G.gameId = generateGameId();
-                createHostGame(G.gameId);
-            } else {
-                G.isHost = true;
-                G.gameId = generateGameId();
-                G.opponentName = generatePlayerName();
-                startGame();
-            }
-        });
-    });
-
-    // ============ WAITING SCREEN ============
-    document.getElementById('copyBtn').addEventListener('click', () => {
-        const link = document.getElementById('shareLink').textContent;
-        navigator.clipboard.writeText(link).then(() => {
-            document.getElementById('copyBtn').textContent = '✓ Copied!';
-            setTimeout(() => { document.getElementById('copyBtn').textContent = 'Copy Link'; }, 2000);
-        });
-    });
-
-    document.getElementById('cancelBtn').addEventListener('click', () => {
-        if (hostPingInterval) { clearInterval(hostPingInterval); hostPingInterval = null; }
-        if (joinRetryInterval) { clearInterval(joinRetryInterval); joinRetryInterval = null; }
-        if (mqttClient) { mqttClient.end(true); mqttClient = null; }
-        mqttTopic = null;
-        showScreen('landing');
-    });
-
-    // ============ CHECK URL FOR GAME ID ============
-    function checkForGameInURL() {
-        const hash = window.location.hash.slice(1);
-        if (hash && hash.length >= 4) {
-            // Auto-connect wallet first
-            if (!G.walletConnected) {
-                G.walletConnected = true;
-                G.playerName = generatePlayerName();
-                G.walletAddress = G.playerName;
-                document.getElementById('walletDisconnected').style.display = 'none';
-                document.getElementById('walletConnected').classList.add('show');
-                document.getElementById('walletAddress').textContent = G.playerName;
-                document.getElementById('modeSection').classList.add('show');
-                document.getElementById('connectBtn').disabled = true;
-            }
-            G.isHost = false;
-            G.selectedMode = 'friend';
-            G.gameId = hash;
-            joinAsGuest(hash);
+            case 'error':
+                alert(msg.message || 'Game error');
+                showScreen('landing');
+                break;
         }
     }
 
-    // ============ COUNTDOWN ============
+    // ---- Countdown ----
     function runCountdown(callback) {
         const overlay = document.getElementById('countdownOverlay');
         const numEl = document.getElementById('countdownNumber');
@@ -893,31 +592,26 @@
         G.countdownTimeout = setTimeout(tick, 1000);
     }
 
-    // ============ GAME ============
-    let gameGeneration = 0; // prevents double startGame from corrupting state
-
-    function startGame(skipStartMsg) {
-        gameGeneration++;
-        const thisGen = gameGeneration;
-        dlog('startGame gen=' + thisGen + ' skip=' + !!skipStartMsg + ' host=' + G.isHost + ' screen=' + G.screen + ' gid=' + G.gameId);
-
+    // ---- Round start (server sent question) ----
+    function startRound(msg) {
         clearAllTimers();
-        // Also force-hide countdown overlay in case previous round left it
         document.getElementById('countdownOverlay').classList.remove('active');
 
-        G.playerAnswer = null; G.playerTime = null;
-        G.opponentAnswer = null; G.opponentTime = null;
-        G.currentQuestion = null; G.shuffledOptions = null; G.correctShuffledIdx = null;
-        G.timeRemaining = TIME_LIMIT_MS; G.questionStartTime = null;
+        G.answered = false;
+        G.questionStartTime = null;
+        G.opponentWantsRematch = false;
 
-        // If host in multiplayer, tell guest to start (but not on rematch — rematch-start already sent)
-        if (G.isHost && mqttClient && !skipStartMsg) {
-            send({ type: 'start', hostName: G.playerName, tier: G.selectedTier, from: G.playerName });
-        }
+        const q = msg.question; // { text, image, options } — NO correctIdx
+        const round = msg.round;
 
         document.getElementById('playerYou').textContent = G.playerName;
         document.getElementById('playerOpponent').textContent = G.opponentName || 'Opponent';
+        if (round > 1) {
+            document.getElementById('roundIndicator').textContent = 'Round ' + round;
+            document.getElementById('roundIndicator').style.display = 'block';
+        }
 
+        // Reset play UI
         document.getElementById('timerText').textContent = '10.00';
         document.getElementById('timerCircle').style.strokeDashoffset = '0';
         document.getElementById('timerText').style.color = 'var(--accent)';
@@ -927,98 +621,58 @@
         document.getElementById('imagePlaceholder').innerHTML = '';
         document.getElementById('answersGrid').innerHTML = '';
         document.getElementById('waitingMessage').classList.remove('show');
+        document.getElementById('waitingMessage').innerHTML = '<span class="spinner"></span>Waiting for opponent\'s answer...';
 
         showScreen('play');
 
         setTimeout(() => {
-            if (gameGeneration !== thisGen) return; // stale — another startGame was called
             runCountdown(() => {
-                if (gameGeneration !== thisGen) return; // stale
-                const qData = getQuestionForGame(G.gameId);
-                G.currentQuestion = qData.question;
-                G.shuffledOptions = qData.shuffledOptions;
-                G.correctShuffledIdx = qData.correctShuffledIdx;
+                // Render question
+                document.getElementById('questionText').textContent = q.text;
+                const imgC = document.getElementById('imagePlaceholder');
+                imgC.innerHTML = '';
+                if (q.image) {
+                    const img = document.createElement('img');
+                    img.src = q.image; img.alt = 'Identify this';
+                    img.draggable = false; img.oncontextmenu = e => e.preventDefault();
+                    imgC.appendChild(img);
+                }
+                const grid = document.getElementById('answersGrid');
+                grid.innerHTML = q.options.map((opt, i) =>
+                    `<button class="answer-btn" data-index="${i}">${opt}</button>`
+                ).join('');
+                document.querySelectorAll('.answer-btn').forEach(btn => {
+                    btn.addEventListener('click', () => selectAnswer(parseInt(btn.dataset.index)));
+                });
 
-                renderQuestion();
+                // Start client-side timer (visual only — server enforces actual timeout)
                 G.questionStartTime = Date.now();
                 startTimers();
-
-                // If random mode, simulate opponent
-                if (G.selectedMode === 'random') simulateOpponentAnswer();
             });
         }, 400);
     }
 
-    function renderQuestion() {
-        document.getElementById('questionText').textContent = G.currentQuestion.text;
-        const imgC = document.getElementById('imagePlaceholder');
-        imgC.innerHTML = '';
-        if (G.currentQuestion.image) {
-            const img = document.createElement('img');
-            img.src = G.currentQuestion.image; img.alt = 'Identify this';
-            img.draggable = false; img.oncontextmenu = e => e.preventDefault();
-            imgC.appendChild(img);
-        }
-        const grid = document.getElementById('answersGrid');
-        grid.innerHTML = G.shuffledOptions.map((opt, i) => `<button class="answer-btn" data-index="${i}">${opt}</button>`).join('');
-        document.querySelectorAll('.answer-btn').forEach((btn, i) => { btn.addEventListener('click', () => selectAnswer(i)); });
-    }
-
+    // ---- Answer selection ----
     function selectAnswer(idx) {
-        if (G.playerAnswer !== null || !G.questionStartTime) return;
-        dlog('selectAnswer idx=' + idx + ' t=' + (Date.now() - G.questionStartTime));
-        G.playerAnswer = idx;
-        G.playerTime = Date.now() - G.questionStartTime;
+        if (G.answered || !G.questionStartTime) return;
+        G.answered = true;
 
+        const elapsed = Date.now() - G.questionStartTime;
+        document.getElementById('elapsedTimer').textContent = formatTime(elapsed);
         if (G.elapsedInterval) { clearInterval(G.elapsedInterval); G.elapsedInterval = null; }
-        document.getElementById('elapsedTimer').textContent = formatTime(G.playerTime);
 
-        const correctIdx = G.correctShuffledIdx;
+        // Highlight selected (we don't know correct yet — server will tell us)
         document.querySelectorAll('.answer-btn').forEach((btn, i) => {
             btn.disabled = true;
             if (i === idx) btn.classList.add('selected');
-            if (i === correctIdx) btn.classList.add('correct');
-            if (i === idx && i !== correctIdx) btn.classList.add('wrong');
         });
-
         document.getElementById('waitingMessage').classList.add('show');
 
-        // Send answer to opponent — retry every 2s in case of dropped connection
-        const answerMsg = { type: 'answer', answerIndex: idx, time: G.playerTime, from: G.playerName };
-        send(answerMsg);
-        G.answerRetry = setInterval(() => {
-            if (G.screen !== 'play') { clearInterval(G.answerRetry); G.answerRetry = null; return; }
-            send(answerMsg);
-        }, 2000);
-
-        if (G.opponentAnswer !== null) {
-            if (G.answerRetry) { clearInterval(G.answerRetry); G.answerRetry = null; }
-            setTimeout(() => finishGame(), 800);
-        } else {
-            // Safety timeout — if opponent answer never arrives, force finish after 20s
-            G.opponentTimeout = setTimeout(() => {
-                if (G.opponentAnswer === null) {
-                    dlog('SAFETY TIMEOUT — opponent answer never received');
-                    G.opponentAnswer = -1;
-                    G.opponentTime = TIME_LIMIT_MS;
-                    finishGame();
-                }
-            }, 20000);
-        }
+        // Send to server
+        wsSend({ type: 'answer', answerIndex: idx });
     }
 
-    function simulateOpponentAnswer() {
-        const u1 = Math.random(), u2 = Math.random();
-        const gaussian = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
-        const delay = Math.max(2000, Math.min(5000, 3200 + gaussian * 700));
-        setTimeout(() => {
-            const isCorrect = Math.random() < 0.7;
-            G.opponentAnswer = isCorrect ? G.correctShuffledIdx : [0,1,2,3].filter(i => i !== G.correctShuffledIdx)[Math.floor(Math.random() * 3)];
-            G.opponentTime = delay;
-            if (G.playerAnswer !== null) setTimeout(() => finishGame(), 800);
-        }, delay);
-    }
-
+    // ---- Visual timer (client-side, non-authoritative) ----
     function startTimers() {
         const startTime = Date.now();
         G.timerInterval = setInterval(() => {
@@ -1027,144 +681,199 @@
             const secs = remaining / 1000;
             document.getElementById('timerText').textContent = secs.toFixed(2);
             document.getElementById('timerCircle').style.strokeDashoffset = CIRCUMFERENCE * (1 - remaining / TIME_LIMIT_MS);
-            if (secs <= 3) { document.getElementById('timerText').style.color = 'var(--lose)'; document.getElementById('timerCircle').style.stroke = 'var(--lose)'; }
-            else { document.getElementById('timerText').style.color = 'var(--accent)'; document.getElementById('timerCircle').style.stroke = 'var(--accent)'; }
+            if (secs <= 3) {
+                document.getElementById('timerText').style.color = 'var(--lose)';
+                document.getElementById('timerCircle').style.stroke = 'var(--lose)';
+            } else {
+                document.getElementById('timerText').style.color = 'var(--accent)';
+                document.getElementById('timerCircle').style.stroke = 'var(--accent)';
+            }
             if (remaining <= 0) {
                 clearInterval(G.timerInterval); G.timerInterval = null;
-                if (G.playerAnswer === null) {
-                    G.playerAnswer = -1; G.playerTime = TIME_LIMIT_MS;
+                if (!G.answered) {
+                    G.answered = true;
                     document.getElementById('elapsedTimer').textContent = formatTime(TIME_LIMIT_MS);
-                    document.querySelectorAll('.answer-btn').forEach((btn, i) => { btn.disabled = true; if (i === G.correctShuffledIdx) btn.classList.add('correct'); });
+                    document.querySelectorAll('.answer-btn').forEach(btn => { btn.disabled = true; });
                     document.getElementById('waitingMessage').classList.add('show');
-                    const timeoutMsg = { type: 'answer', answerIndex: -1, time: TIME_LIMIT_MS, from: G.playerName };
-                    send(timeoutMsg);
-                    G.answerRetry = setInterval(() => {
-                        if (G.screen !== 'play') { clearInterval(G.answerRetry); G.answerRetry = null; return; }
-                        send(timeoutMsg);
-                    }, 2000);
-                    if (G.opponentAnswer !== null) {
-                        if (G.answerRetry) { clearInterval(G.answerRetry); G.answerRetry = null; }
-                        setTimeout(() => finishGame(), 800);
-                    } else {
-                        G.opponentTimeout = setTimeout(() => {
-                            if (G.opponentAnswer === null) {
-                                G.opponentAnswer = -1; G.opponentTime = TIME_LIMIT_MS;
-                                finishGame();
-                            }
-                        }, 20000);
-                    }
+                    // Server auto-submits for us, no need to send anything
                 }
             }
         }, 30);
+
         G.elapsedInterval = setInterval(() => {
-            if (G.playerAnswer !== null) return;
+            if (G.answered) return;
             document.getElementById('elapsedTimer').textContent = formatTime(Date.now() - G.questionStartTime);
         }, 10);
     }
 
-    function finishGame() {
-        dlog('finishGame pAns=' + G.playerAnswer + ' pT=' + G.playerTime + ' oAns=' + G.opponentAnswer + ' oT=' + G.opponentTime);
+    // ---- Show result (server sent full result) ----
+    function showResult(msg) {
         clearAllTimers();
-        pushLog();
-        const settlement = settleGame(G.playerAnswer, G.playerTime, G.opponentAnswer, G.opponentTime, G.correctShuffledIdx);
-        showResults(settlement);
-    }
 
-    // ============ RESULTS ============
-    function showResults(settlement) {
-        const wagerAmounts = [0, 1, 10, 100, 1000];
-        const wager = wagerAmounts[G.selectedTier] || 1;
-        const payout = calculatePayout(settlement.result, wager);
+        const result = msg.you.result; // 'win', 'loss', 'draw'
+        const myAnswer = msg.you.answer;
+        const myTime = msg.you.time;
+        const oppTime = msg.opponent.time;
+        const correctIdx = msg.correctIdx;
+        const correctAnswer = msg.correctAnswer;
+        const reason = msg.reason;
+        const round = msg.round;
 
-        if (settlement.result === 'win') G.stats.wins++;
-        else if (settlement.result === 'loss') G.stats.losses++;
+        // Highlight correct/wrong on answer buttons before transition
+        document.querySelectorAll('.answer-btn').forEach((btn, i) => {
+            if (i === correctIdx) btn.classList.add('correct');
+            if (i === myAnswer && i !== correctIdx) btn.classList.add('wrong');
+        });
+
+        // Update stats
+        if (result === 'win') G.stats.wins++;
+        else if (result === 'loss') G.stats.losses++;
         else G.stats.draws++;
-        updateStats();
-
-        const bannerText = { win: '🎉 YOU WIN', loss: '😔 YOU LOSE', draw: '🤝 DRAW' }[settlement.result];
-        document.getElementById('resultBanner').className = 'result-banner ' + (settlement.result === 'loss' ? 'loss' : settlement.result);
-        document.getElementById('resultBanner').textContent = bannerText;
-
-        const correctAnswer = G.currentQuestion.options[G.currentQuestion.correct];
-        let playerAnswerText = 'Time expired';
-        if (G.playerAnswer >= 0 && G.playerAnswer < G.shuffledOptions.length) playerAnswerText = G.shuffledOptions[G.playerAnswer];
-        const playerWasCorrect = G.playerAnswer === G.correctShuffledIdx;
-
-        document.getElementById('resultDetails').innerHTML = `
-            <div class="detail-row"><span class="detail-label">Your Answer:</span><span class="detail-value" style="color: ${playerWasCorrect ? 'var(--win)' : 'var(--lose)'}">${playerAnswerText}</span></div>
-            <div class="detail-row"><span class="detail-label">Correct Answer:</span><span class="detail-value" style="color: var(--win)">${correctAnswer}</span></div>
-            <div class="detail-row"><span class="detail-label">Your Time:</span><span class="detail-value">${formatTime(G.playerTime)}</span></div>
-            <div class="detail-row"><span class="detail-label">Opponent Time:</span><span class="detail-value">${formatTime(G.opponentTime)}</span></div>
-            <div class="detail-row"><span class="detail-label">Result:</span><span class="detail-value">${getReasonText(settlement.reason)}</span></div>
-            <div class="detail-row"><span class="detail-label">Wager:</span><span class="detail-value">$${wager} USDC</span></div>
-        `;
-
-        const payoutLabel = settlement.result === 'win' ? 'Prize Winnings (3% fee deducted)' : settlement.result === 'draw' ? 'Wager Returned' : 'Amount Lost';
-        document.getElementById('payoutLabel').textContent = payoutLabel;
-        document.getElementById('payoutAmount').textContent = `$${payout}`;
-        document.getElementById('payoutAmount').style.color = settlement.result === 'win' ? 'var(--win)' : settlement.result === 'draw' ? 'var(--draw)' : 'var(--lose)';
-
-        // Reset play again button for rematch flow
-        const paBtn = document.getElementById('playAgainBtn');
-        paBtn.textContent = 'Play Again';
-        paBtn.disabled = false;
-        paBtn.style.animation = '';
-        G.wantsRematch = false;
-        G.opponentWantsRematch = false;
-
-        showScreen('results');
-    }
-
-    function updateStats() {
         document.getElementById('statWins').textContent = G.stats.wins;
         document.getElementById('statDraws').textContent = G.stats.draws;
         document.getElementById('statLosses').textContent = G.stats.losses;
+
+        // Small delay to show correct/wrong highlights
+        setTimeout(() => {
+            const wagerAmounts = [0, 1, 10, 100, 1000];
+            const wager = wagerAmounts[G.selectedTier] || 1;
+            const payout = calculatePayout(result, wager);
+
+            const bannerText = { win: '🎉 YOU WIN', loss: '😔 YOU LOSE', draw: '🤝 DRAW' }[result];
+            document.getElementById('resultBanner').className = 'result-banner ' + (result === 'loss' ? 'loss' : result);
+            document.getElementById('resultBanner').textContent = bannerText;
+
+            // Build my answer text
+            const options = Array.from(document.querySelectorAll('.answer-btn')).map(b => b.textContent);
+            let myAnswerText = 'Time expired';
+            if (myAnswer >= 0 && myAnswer < options.length) myAnswerText = options[myAnswer];
+            const myCorrect = myAnswer === correctIdx;
+
+            document.getElementById('resultDetails').innerHTML = `
+                <div class="detail-row"><span class="detail-label">Your Answer:</span><span class="detail-value" style="color: ${myCorrect ? 'var(--win)' : 'var(--lose)'}">${myAnswerText}</span></div>
+                <div class="detail-row"><span class="detail-label">Correct Answer:</span><span class="detail-value" style="color: var(--win)">${correctAnswer}</span></div>
+                <div class="detail-row"><span class="detail-label">Your Time:</span><span class="detail-value">${formatTime(myTime)}</span></div>
+                <div class="detail-row"><span class="detail-label">Opponent Time:</span><span class="detail-value">${formatTime(oppTime)}</span></div>
+                <div class="detail-row"><span class="detail-label">Result:</span><span class="detail-value">${getReasonText(reason)}</span></div>
+                <div class="detail-row"><span class="detail-label">Wager:</span><span class="detail-value">$${wager} USDC</span></div>
+            `;
+
+            const payoutLabel = result === 'win' ? 'Prize Winnings (3% fee deducted)' : result === 'draw' ? 'Wager Returned' : 'Amount Lost';
+            document.getElementById('payoutLabel').textContent = payoutLabel;
+            document.getElementById('payoutAmount').textContent = '$' + payout;
+            document.getElementById('payoutAmount').style.color = result === 'win' ? 'var(--win)' : result === 'draw' ? 'var(--draw)' : 'var(--lose)';
+
+            const paBtn = document.getElementById('playAgainBtn');
+            paBtn.textContent = 'Play Again';
+            paBtn.disabled = false;
+            paBtn.style.animation = '';
+            paBtn.dataset.waiting = '';
+
+            showScreen('results');
+        }, 1200);
     }
 
-    function startRematch() {
-        dlog('startRematch host=' + G.isHost + ' round=' + (G.roundNumber+1));
-        G.wantsRematch = false;
-        G.opponentWantsRematch = false;
-        G.roundNumber++;
-        // Host picks a new game ID for fresh question (topic stays the same)
-        if (G.isHost) {
-            G.gameId = generateGameId();
-            send({ type: 'rematch-start', gameId: G.gameId, tier: G.selectedTier, round: G.roundNumber, from: G.playerName });
-        }
-        document.getElementById('roundIndicator').textContent = 'Round ' + G.roundNumber;
-        document.getElementById('roundIndicator').style.display = 'block';
-        startGame(true); // skip sending 'start' — rematch-start already handles it
-    }
+    // ============ EVENT LISTENERS ============
 
+    // Connect wallet (simulated)
+    document.getElementById('connectBtn').addEventListener('click', () => {
+        if (G.walletConnected) return;
+        G.walletConnected = true;
+        G.playerName = generatePlayerName();
+        document.getElementById('walletDisconnected').style.display = 'none';
+        document.getElementById('walletConnected').classList.add('show');
+        document.getElementById('walletAddress').textContent = G.playerName;
+        document.getElementById('modeSection').classList.add('show');
+        document.getElementById('connectBtn').disabled = true;
+    });
+
+    // Mode selection
+    document.querySelectorAll('.mode-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            G.selectedMode = e.target.dataset.mode;
+            showScreen('setup');
+        });
+    });
+
+    // Tier selection → create game
+    document.querySelectorAll('.tier-card').forEach(card => {
+        card.addEventListener('click', (e) => {
+            const target = e.target.closest('.tier-card');
+            if (!target) return;
+            document.querySelectorAll('.tier-card').forEach(c => c.classList.remove('selected'));
+            target.classList.add('selected');
+            G.selectedTier = parseInt(target.dataset.tier);
+            G.isHost = true;
+
+            // Connect to server and create room
+            connectWS(() => {
+                wsSend({ type: 'create', name: G.playerName, tier: G.selectedTier });
+            });
+        });
+    });
+
+    // Copy link
+    document.getElementById('copyBtn').addEventListener('click', () => {
+        const link = document.getElementById('shareLink').textContent;
+        navigator.clipboard.writeText(link).then(() => {
+            document.getElementById('copyBtn').textContent = '✓ Copied!';
+            setTimeout(() => { document.getElementById('copyBtn').textContent = 'Copy Link'; }, 2000);
+        });
+    });
+
+    // Cancel
+    document.getElementById('cancelBtn').addEventListener('click', () => {
+        if (ws) { ws.close(); ws = null; }
+        showScreen('landing');
+    });
+
+    // Play Again (rematch)
     document.getElementById('playAgainBtn').addEventListener('click', () => {
         document.getElementById('statsSection').classList.add('show');
 
-        // If multiplayer with active connection, do rematch flow
-        if (G.selectedMode === 'friend' && mqttClient) {
-            G.wantsRematch = true;
-            send({ type: 'rematch', from: G.playerName });
-            if (G.opponentWantsRematch) {
-                startRematch();
-            } else {
-                // Show waiting state on the button
-                const btn = document.getElementById('playAgainBtn');
-                btn.textContent = 'Waiting for opponent...';
-                btn.disabled = true;
-            }
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            wsSend({ type: 'rematch' });
+            const btn = document.getElementById('playAgainBtn');
+            btn.textContent = 'Waiting for opponent...';
+            btn.disabled = true;
+            btn.dataset.waiting = 'true';
+
+            // If opponent already requested, server will auto-start next round
             return;
         }
 
-        // Solo/random mode — go back to landing
-        if (mqttClient) { mqttClient.end(true); mqttClient = null; }
-        history.replaceState(null, '', window.location.pathname);
+        // No connection — go home
         showScreen('landing');
     });
 
     document.getElementById('viewSolanaBtn').addEventListener('click', () => {});
 
-    updateStats();
+    // ---- Auto-join from URL hash ----
+    function checkForGameInURL() {
+        const hash = window.location.hash.slice(1);
+        if (hash && hash.length >= 4) {
+            if (!G.walletConnected) {
+                G.walletConnected = true;
+                G.playerName = generatePlayerName();
+                document.getElementById('walletDisconnected').style.display = 'none';
+                document.getElementById('walletConnected').classList.add('show');
+                document.getElementById('walletAddress').textContent = G.playerName;
+                document.getElementById('modeSection').classList.add('show');
+                document.getElementById('connectBtn').disabled = true;
+            }
+            G.isHost = false;
+            G.selectedMode = 'friend';
+            G.gameId = hash;
+            showScreen('joining');
 
-    // Auto-join if URL has game hash
+            connectWS(() => {
+                document.getElementById('joinStatus').textContent = 'Connected! Joining...';
+                document.getElementById('joinStatus').className = 'connection-status connected';
+                wsSend({ type: 'join', name: G.playerName, gameId: hash });
+            });
+        }
+    }
+
     window.addEventListener('load', checkForGameInURL);
     </script>
 </body>
