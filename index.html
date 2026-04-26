@@ -533,7 +533,11 @@
                 break;
 
             case 'round-start':
-                startRound(msg);
+                preloadRound(msg);
+                break;
+
+            case 'round-go':
+                revealAndStart();
                 break;
 
             case 'opponent-answered':
@@ -592,26 +596,27 @@
         G.countdownTimeout = setTimeout(tick, 1000);
     }
 
-    // ---- Round start (server sent question) ----
-    function startRound(msg) {
+    // ---- Phase 1: preload (server sent question, countdown runs, image preloads) ----
+    function preloadRound(msg) {
         clearAllTimers();
         document.getElementById('countdownOverlay').classList.remove('active');
 
         G.answered = false;
         G.questionStartTime = null;
+        G.frozenElapsed = null;
         G.opponentWantsRematch = false;
 
-        const q = msg.question; // { text, image, options } — NO correctIdx
-        const round = msg.round;
+        G.pendingQuestion = msg.question;
+        G.pendingRound = msg.round;
 
         document.getElementById('playerYou').textContent = G.playerName;
         document.getElementById('playerOpponent').textContent = G.opponentName || 'Opponent';
-        if (round > 1) {
-            document.getElementById('roundIndicator').textContent = 'Round ' + round;
+        if (msg.round > 1) {
+            document.getElementById('roundIndicator').textContent = 'Round ' + msg.round;
             document.getElementById('roundIndicator').style.display = 'block';
         }
 
-        // Reset play UI
+        // Reset play UI — blank question area, timer at 10
         document.getElementById('timerText').textContent = '10.00';
         document.getElementById('timerCircle').style.strokeDashoffset = '0';
         document.getElementById('timerText').style.color = 'var(--accent)';
@@ -625,41 +630,57 @@
 
         showScreen('play');
 
-        // Preload image during countdown — fetched through server proxy (no URL leak)
-        let preloadedImg = null;
+        // Preload image during countdown
+        G.preloadedImg = null;
+        const q = msg.question;
         if (q.imageToken) {
-            preloadedImg = new Image();
-            preloadedImg.src = SERVER_URL.replace('wss://', 'https://').replace('ws://', 'http://') + '/img/' + q.imageToken;
+            G.preloadedImg = new Image();
+            G.preloadedImg.src = SERVER_URL.replace('wss://', 'https://').replace('ws://', 'http://') + '/img/' + q.imageToken;
         }
 
-        setTimeout(() => {
-            runCountdown(() => {
-                // Render question
-                document.getElementById('questionText').textContent = q.text;
-                const imgC = document.getElementById('imagePlaceholder');
-                imgC.innerHTML = '';
-                if (preloadedImg) {
-                    preloadedImg.alt = 'Identify this';
-                    preloadedImg.draggable = false;
-                    preloadedImg.oncontextmenu = e => e.preventDefault();
-                    preloadedImg.onerror = () => {
-                        imgC.innerHTML = '<div style="padding:40px 20px;color:var(--text-secondary);font-size:14px;">Image loading — answer from the options!</div>';
-                    };
-                    imgC.appendChild(preloadedImg);
-                }
-                const grid = document.getElementById('answersGrid');
-                grid.innerHTML = q.options.map((opt, i) =>
-                    `<button class="answer-btn" data-index="${i}">${opt}</button>`
-                ).join('');
-                document.querySelectorAll('.answer-btn').forEach(btn => {
-                    btn.addEventListener('click', () => selectAnswer(parseInt(btn.dataset.index)));
-                });
+        // Run countdown while waiting for server "go" signal
+        runCountdown(() => {
+            // Countdown done — if "go" hasn't arrived yet, show "waiting for sync..."
+            if (!G.questionStartTime) {
+                document.getElementById('questionText').textContent = 'Syncing...';
+            }
+        });
+    }
 
-                // Start client-side timer (visual only — server enforces actual timeout)
-                G.questionStartTime = Date.now();
-                startTimers();
-            });
-        }, 400);
+    // ---- Phase 2: server says GO — reveal question, start timer ----
+    function revealAndStart() {
+        clearAllTimers();
+        document.getElementById('countdownOverlay').classList.remove('active');
+
+        const q = G.pendingQuestion;
+        if (!q) return;
+
+        // Render question + image
+        document.getElementById('questionText').textContent = q.text;
+        const imgC = document.getElementById('imagePlaceholder');
+        imgC.innerHTML = '';
+        if (G.preloadedImg) {
+            G.preloadedImg.alt = 'Identify this';
+            G.preloadedImg.draggable = false;
+            G.preloadedImg.oncontextmenu = e => e.preventDefault();
+            G.preloadedImg.onerror = () => {
+                imgC.innerHTML = '<div style="padding:40px 20px;color:var(--text-secondary);font-size:14px;">Image loading — answer from the options!</div>';
+            };
+            imgC.appendChild(G.preloadedImg);
+        }
+
+        // Render answer buttons
+        const grid = document.getElementById('answersGrid');
+        grid.innerHTML = q.options.map((opt, i) =>
+            `<button class="answer-btn" data-index="${i}">${opt}</button>`
+        ).join('');
+        document.querySelectorAll('.answer-btn').forEach(btn => {
+            btn.addEventListener('click', () => selectAnswer(parseInt(btn.dataset.index)));
+        });
+
+        // Start client-side timer from NOW — synchronized by server "go"
+        G.questionStartTime = Date.now();
+        startTimers();
     }
 
     // ---- Answer selection ----
@@ -667,9 +688,17 @@
         if (G.answered || !G.questionStartTime) return;
         G.answered = true;
 
+        // Freeze elapsed time INSTANTLY — no waiting for interval tick
         const elapsed = Date.now() - G.questionStartTime;
+        G.frozenElapsed = elapsed;
         document.getElementById('elapsedTimer').textContent = formatTime(elapsed);
         if (G.elapsedInterval) { clearInterval(G.elapsedInterval); G.elapsedInterval = null; }
+        // Also freeze the countdown ring at current position
+        if (G.timerInterval) { clearInterval(G.timerInterval); G.timerInterval = null; }
+        const remaining = Math.max(0, TIME_LIMIT_MS - elapsed);
+        const secs = remaining / 1000;
+        document.getElementById('timerText').textContent = secs.toFixed(2);
+        document.getElementById('timerCircle').style.strokeDashoffset = CIRCUMFERENCE * (1 - remaining / TIME_LIMIT_MS);
 
         // Highlight selected (we don't know correct yet — server will tell us)
         document.querySelectorAll('.answer-btn').forEach((btn, i) => {
@@ -719,6 +748,11 @@
     // ---- Show result (server sent full result) ----
     function showResult(msg) {
         clearAllTimers();
+
+        // Update elapsed display to server's authoritative time
+        if (msg.you.time != null) {
+            document.getElementById('elapsedTimer').textContent = formatTime(msg.you.time);
+        }
 
         const result = msg.you.result; // 'win', 'loss', 'draw'
         const myAnswer = msg.you.answer;
