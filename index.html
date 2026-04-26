@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Common Sense or Nonsense? — 1v1 Trivia Wagering</title>
-    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+    <script src="https://unpkg.com/mqtt@5.3.0/dist/mqtt.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -578,24 +578,37 @@
         if (G.countdownTimeout) { clearTimeout(G.countdownTimeout); G.countdownTimeout = null; }
     }
 
-    // ============ PEER CONNECTION ============
+    // ============ MQTT CONNECTION (HiveMQ free public broker) ============
+    let mqttClient = null;
+
     function send(data) {
-        if (G.conn && G.conn.open) G.conn.send(data);
+        if (!mqttClient || !G.gameId) return;
+        const topic = 'sense-game/' + G.gameId;
+        mqttClient.publish(topic, JSON.stringify(data));
     }
 
-    function onPeerData(data) {
+    function onMessage(data) {
+        // Ignore our own messages
+        if (data.from === G.playerName) return;
+
         if (data.type === 'joined') {
-            // Opponent joined — start the game (host side)
             G.opponentName = data.name;
             document.getElementById('connectionStatus').textContent = `${G.opponentName} connected!`;
             document.getElementById('connectionStatus').className = 'connection-status connected';
-            setTimeout(() => startGame(), 1000);
+            // Host sends start after a beat
+            if (G.isHost) {
+                setTimeout(() => {
+                    send({ type: 'start', hostName: G.playerName, tier: G.selectedTier, from: G.playerName });
+                    startGame();
+                }, 1000);
+            }
         }
         if (data.type === 'start') {
-            // Host says start (guest side)
-            G.opponentName = data.hostName;
-            G.selectedTier = data.tier;
-            startGame();
+            if (!G.isHost) {
+                G.opponentName = data.hostName;
+                G.selectedTier = data.tier;
+                startGame();
+            }
         }
         if (data.type === 'answer') {
             G.opponentAnswer = data.answerIndex;
@@ -606,121 +619,78 @@
         }
     }
 
-    function setupConnection(conn) {
-        G.conn = conn;
-        conn.on('data', onPeerData);
-        conn.on('close', () => { console.log('Connection closed'); });
-        conn.on('error', (err) => { console.error('Connection error:', err); });
-    }
+    function connectMQTT(gameId, callback) {
+        const topic = 'sense-game/' + gameId;
+        // Use HiveMQ free public broker over secure WebSocket
+        const url = 'wss://broker.hivemq.com:8884/mqtt';
+        const clientId = 'sense_' + Math.random().toString(36).substr(2, 8);
 
-    // PeerJS config — use multiple STUN/TURN servers for reliability
-    const PEER_CONFIG = {
-        debug: 1,
-        config: {
-            iceServers: [
-                { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:stun1.l.google.com:19302' },
-                { urls: 'stun:stun2.l.google.com:19302' },
-                { urls: 'stun:stun.relay.metered.ca:80' },
-            ]
+        if (mqttClient) {
+            try { mqttClient.end(true); } catch(e) {}
         }
-    };
 
-    function createHostPeer(gameId) {
-        const peerId = 'sense-' + gameId;
-        if (G.peer) { G.peer.destroy(); G.peer = null; }
-        const peer = new Peer(peerId, PEER_CONFIG);
-        G.peer = peer;
-
-        peer.on('open', (id) => {
-            console.log('Host peer open:', id);
-            const link = window.location.origin + window.location.pathname + '#' + gameId;
-            document.getElementById('shareLink').textContent = link;
-            showScreen('waiting');
+        mqttClient = mqtt.connect(url, {
+            clientId: clientId,
+            clean: true,
+            connectTimeout: 8000,
+            reconnectPeriod: 2000,
         });
 
-        peer.on('connection', (conn) => {
-            console.log('Host got connection from:', conn.peer);
-            setupConnection(conn);
-            conn.on('open', () => {
-                console.log('Host: data channel open');
+        mqttClient.on('connect', () => {
+            console.log('MQTT connected as', clientId);
+            mqttClient.subscribe(topic, { qos: 1 }, (err) => {
+                if (err) {
+                    console.error('Subscribe error:', err);
+                    return;
+                }
+                console.log('Subscribed to', topic);
+                if (callback) callback();
             });
         });
 
-        peer.on('error', (err) => {
-            console.error('Host peer error:', err.type, err);
-            if (err.type === 'unavailable-id') {
-                // ID taken — append random suffix and retry
-                G.gameId = gameId + Math.floor(Math.random() * 10);
-                createHostPeer(G.gameId);
+        mqttClient.on('message', (t, msg) => {
+            try {
+                const data = JSON.parse(msg.toString());
+                onMessage(data);
+            } catch(e) {
+                console.error('Bad message:', e);
             }
         });
 
-        peer.on('disconnected', () => {
-            console.log('Host disconnected from signaling, reconnecting...');
-            if (!peer.destroyed) peer.reconnect();
+        mqttClient.on('error', (err) => {
+            console.error('MQTT error:', err);
+        });
+
+        mqttClient.on('reconnect', () => {
+            console.log('MQTT reconnecting...');
+        });
+    }
+
+    function createHostGame(gameId) {
+        G.gameId = gameId;
+        const link = window.location.origin + window.location.pathname + '#' + gameId;
+        document.getElementById('shareLink').textContent = link;
+        showScreen('waiting');
+        document.getElementById('connectionStatus').textContent = 'Connecting...';
+
+        connectMQTT(gameId, () => {
+            document.getElementById('connectionStatus').textContent = 'Waiting for opponent...';
+            document.getElementById('connectionStatus').className = 'connection-status waiting';
+            // Send a presence ping so late-joining guests know host is alive
+            send({ type: 'host-ready', name: G.playerName, from: G.playerName });
         });
     }
 
     function joinAsGuest(gameId) {
         showScreen('joining');
-        if (G.peer) { G.peer.destroy(); G.peer = null; }
-        const peer = new Peer(undefined, PEER_CONFIG);
-        G.peer = peer;
-        let retries = 0;
-        const MAX_RETRIES = 5;
+        G.gameId = gameId;
+        document.getElementById('joinStatus').textContent = 'Connecting...';
 
-        function attemptConnect() {
-            if (retries >= MAX_RETRIES) {
-                document.getElementById('joinStatus').textContent = 'Could not connect after multiple attempts. Ask host to create a new game.';
-                return;
-            }
-            retries++;
-            const attempt = retries;
-            console.log(`Join attempt ${attempt}/${MAX_RETRIES}`);
-            document.getElementById('joinStatus').textContent = `Connecting to host... (attempt ${attempt})`;
-
-            const conn = peer.connect('sense-' + gameId, { reliable: true, serialization: 'json' });
-
-            const timeout = setTimeout(() => {
-                if (!G.conn || !G.conn.open) {
-                    console.log(`Attempt ${attempt} timed out, retrying...`);
-                    attemptConnect();
-                }
-            }, 4000);
-
-            conn.on('open', () => {
-                clearTimeout(timeout);
-                setupConnection(conn);
-                document.getElementById('joinStatus').textContent = 'Connected! Starting game...';
-                document.getElementById('joinStatus').className = 'connection-status connected';
-                send({ type: 'joined', name: G.playerName });
-            });
-
-            conn.on('error', (err) => {
-                clearTimeout(timeout);
-                console.error(`Attempt ${attempt} error:`, err);
-                setTimeout(attemptConnect, 1000);
-            });
-        }
-
-        peer.on('open', () => {
-            console.log('Guest peer open, attempting connection...');
-            attemptConnect();
-        });
-
-        peer.on('error', (err) => {
-            console.error('Guest peer error:', err.type, err);
-            if (err.type === 'peer-unavailable') {
-                // Host not found yet — retry after a short delay
-                document.getElementById('joinStatus').textContent = 'Host not found, retrying...';
-                setTimeout(attemptConnect, 2000);
-            }
-        });
-
-        peer.on('disconnected', () => {
-            console.log('Guest disconnected from signaling, reconnecting...');
-            if (!peer.destroyed) peer.reconnect();
+        connectMQTT(gameId, () => {
+            document.getElementById('joinStatus').textContent = 'Connected! Joining game...';
+            document.getElementById('joinStatus').className = 'connection-status connected';
+            // Tell host we joined
+            send({ type: 'joined', name: G.playerName, from: G.playerName });
         });
     }
 
@@ -763,7 +733,7 @@
             if (G.selectedMode === 'friend') {
                 G.isHost = true;
                 G.gameId = generateGameId();
-                createHostPeer(G.gameId);
+                createHostGame(G.gameId);
             } else {
                 G.isHost = true;
                 G.gameId = generateGameId();
@@ -783,7 +753,7 @@
     });
 
     document.getElementById('cancelBtn').addEventListener('click', () => {
-        if (G.peer) { G.peer.destroy(); G.peer = null; }
+        if (mqttClient) { mqttClient.end(true); mqttClient = null; }
         showScreen('landing');
     });
 
@@ -841,8 +811,8 @@
         G.timeRemaining = TIME_LIMIT_MS; G.questionStartTime = null;
 
         // If host in multiplayer, tell guest to start
-        if (G.isHost && G.conn && G.conn.open) {
-            send({ type: 'start', hostName: G.playerName, tier: G.selectedTier });
+        if (G.isHost && mqttClient) {
+            send({ type: 'start', hostName: G.playerName, tier: G.selectedTier, from: G.playerName });
         }
 
         document.getElementById('playerYou').textContent = G.playerName;
@@ -911,7 +881,7 @@
         document.getElementById('waitingMessage').classList.add('show');
 
         // Send answer to opponent
-        send({ type: 'answer', answerIndex: idx, time: G.playerTime });
+        send({ type: 'answer', answerIndex: idx, time: G.playerTime, from: G.playerName });
 
         if (G.opponentAnswer !== null) setTimeout(() => finishGame(), 800);
     }
@@ -1008,7 +978,7 @@
     document.getElementById('playAgainBtn').addEventListener('click', () => {
         document.getElementById('statsSection').classList.add('show');
         // Clean up old connection
-        if (G.peer) { G.peer.destroy(); G.peer = null; G.conn = null; }
+        if (mqttClient) { mqttClient.end(true); mqttClient = null; }
         // Clear hash
         history.replaceState(null, '', window.location.pathname);
         showScreen('landing');
