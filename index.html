@@ -507,6 +507,11 @@
         console.log('Server:', msg.type, msg);
 
         switch (msg.type) {
+            case 'ping':
+                // Respond immediately for latency measurement
+                wsSend({ type: 'pong', nonce: msg.nonce });
+                return;
+
             case 'created':
                 // Host got game ID back
                 G.gameId = msg.gameId;
