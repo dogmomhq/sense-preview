@@ -590,7 +590,7 @@
 
     function send(data) {
         if (!mqttClient || !mqttTopic) return;
-        mqttClient.publish(mqttTopic, JSON.stringify(data));
+        mqttClient.publish(mqttTopic, JSON.stringify(data), { qos: 1 });
     }
 
     function onMessage(data) {
@@ -599,10 +599,11 @@
 
         if (data.type === 'joined') {
             G.opponentName = data.name;
-            document.getElementById('connectionStatus').textContent = `${G.opponentName} connected!`;
-            document.getElementById('connectionStatus').className = 'connection-status connected';
-            // Host sends start after a beat
-            if (G.isHost) {
+            // Only react if we're still on the waiting screen (prevents double-start from retry pings)
+            if (G.isHost && G.screen === 'waiting') {
+                if (hostPingInterval) { clearInterval(hostPingInterval); hostPingInterval = null; }
+                document.getElementById('connectionStatus').textContent = `${G.opponentName} connected!`;
+                document.getElementById('connectionStatus').className = 'connection-status connected';
                 setTimeout(() => {
                     send({ type: 'start', hostName: G.playerName, tier: G.selectedTier, from: G.playerName });
                     startGame();
@@ -693,6 +694,8 @@
         });
     }
 
+    let hostPingInterval = null;
+
     function createHostGame(gameId) {
         G.gameId = gameId;
         const link = window.location.origin + window.location.pathname + '#' + gameId;
@@ -703,10 +706,18 @@
         connectMQTT(gameId, () => {
             document.getElementById('connectionStatus').textContent = 'Waiting for opponent...';
             document.getElementById('connectionStatus').className = 'connection-status waiting';
-            // Send a presence ping so late-joining guests know host is alive
+            // Keep pinging so guest knows host is alive
             send({ type: 'host-ready', name: G.playerName, from: G.playerName });
+            hostPingInterval = setInterval(() => {
+                if (G.screen !== 'waiting') {
+                    clearInterval(hostPingInterval); hostPingInterval = null; return;
+                }
+                send({ type: 'host-ready', name: G.playerName, from: G.playerName });
+            }, 2000);
         });
     }
+
+    let joinRetryInterval = null;
 
     function joinAsGuest(gameId) {
         showScreen('joining');
@@ -716,8 +727,14 @@
         connectMQTT(gameId, () => {
             document.getElementById('joinStatus').textContent = 'Connected! Joining game...';
             document.getElementById('joinStatus').className = 'connection-status connected';
-            // Tell host we joined
+            // Tell host we joined — retry every 2s until game starts
             send({ type: 'joined', name: G.playerName, from: G.playerName });
+            joinRetryInterval = setInterval(() => {
+                if (G.screen === 'play' || G.screen === 'results') {
+                    clearInterval(joinRetryInterval); joinRetryInterval = null; return;
+                }
+                send({ type: 'joined', name: G.playerName, from: G.playerName });
+            }, 2000);
         });
     }
 
@@ -780,7 +797,10 @@
     });
 
     document.getElementById('cancelBtn').addEventListener('click', () => {
+        if (hostPingInterval) { clearInterval(hostPingInterval); hostPingInterval = null; }
+        if (joinRetryInterval) { clearInterval(joinRetryInterval); joinRetryInterval = null; }
         if (mqttClient) { mqttClient.end(true); mqttClient = null; }
+        mqttTopic = null;
         showScreen('landing');
     });
 
