@@ -754,14 +754,11 @@
     function showResult(msg) {
         clearAllTimers();
 
-        // Update elapsed display to server's authoritative time
-        if (msg.you.time != null) {
-            document.getElementById('elapsedTimer').textContent = formatTime(msg.you.time);
-        }
-
         const result = msg.you.result; // 'win', 'loss', 'draw'
         const myAnswer = msg.you.answer;
-        const myTime = msg.you.time;
+        // Use client's frozen elapsed if available (what the player actually saw),
+        // fall back to server time for timeouts / edge cases
+        const myTime = G.frozenElapsed != null ? G.frozenElapsed : msg.you.time;
         const oppTime = msg.opponent.time;
         const correctIdx = msg.correctIdx;
         const correctAnswer = msg.correctAnswer;
