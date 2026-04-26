@@ -1,0 +1,1699 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Common Sense or Nonsense? — 1v1 Trivia Wagering</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-primary: #0a0a1a;
+            --bg-secondary: #1a1a2e;
+            --accent: #00d4aa;
+            --accent-dark: #00b895;
+            --win: #00d4aa;
+            --lose: #ff4757;
+            --draw: #ffa502;
+            --text-primary: #ffffff;
+            --text-secondary: #b0b0c0;
+            --border: #2a2a3e;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, var(--bg-primary) 0%, #0f0f25 100%);
+            color: var(--text-primary);
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        /* Allow play screen to scroll when content overflows */
+        #play {
+            overflow-y: auto;
+            align-items: flex-start;
+        }
+
+        .container {
+            width: 100%;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .screen {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.5s ease;
+            pointer-events: none;
+            padding: 20px;
+        }
+
+        .screen.active {
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: auto;
+        }
+
+        .screen.exit {
+            opacity: 0;
+            transform: translateY(-20px);
+            transition: all 0.3s ease;
+        }
+
+        /* Preview Badge */
+        .preview-badge {
+            position: fixed;
+            top: 12px;
+            right: 12px;
+            background: rgba(255, 165, 0, 0.9);
+            color: #000;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            z-index: 100;
+            text-transform: uppercase;
+        }
+
+        /* === LANDING SCREEN === */
+        .landing-content {
+            text-align: center;
+            max-width: 500px;
+        }
+
+        .game-title {
+            font-size: 48px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            letter-spacing: -0.5px;
+        }
+
+        .game-emoji {
+            font-size: 64px;
+            display: block;
+            margin-bottom: 16px;
+        }
+
+        .game-subtitle {
+            font-size: 18px;
+            color: var(--text-secondary);
+            margin-bottom: 32px;
+        }
+
+        .wallet-section {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 32px;
+            min-height: 60px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .wallet-disconnected {
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+
+        .wallet-connected {
+            display: none;
+        }
+
+        .wallet-connected.show {
+            display: block;
+        }
+
+        .wallet-address {
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            color: var(--accent);
+            word-break: break-all;
+            margin-bottom: 8px;
+        }
+
+        .wallet-balance {
+            font-size: 24px;
+            font-weight: 700;
+        }
+
+        .balance-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        .connect-btn {
+            background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+            border: none;
+            color: #000;
+            padding: 14px 32px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 24px;
+            width: 100%;
+            max-width: 300px;
+        }
+
+        .connect-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(0, 212, 170, 0.4);
+        }
+
+        .connect-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .mode-section {
+            display: none;
+        }
+
+        .mode-section.show {
+            display: block;
+        }
+
+        .mode-title {
+            font-size: 14px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 16px;
+            font-weight: 600;
+        }
+
+        .mode-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 32px;
+        }
+
+        .mode-btn {
+            background: var(--bg-secondary);
+            border: 2px solid var(--border);
+            color: var(--text-primary);
+            padding: 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .mode-btn:hover {
+            border-color: var(--accent);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0, 212, 170, 0.2);
+        }
+
+        .queue-info {
+            background: rgba(0, 212, 170, 0.1);
+            border: 1px solid rgba(0, 212, 170, 0.3);
+            border-radius: 8px;
+            padding: 20px;
+            text-align: left;
+        }
+
+        .queue-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .queue-count {
+            color: var(--accent);
+            font-weight: 600;
+        }
+
+        .stats-section {
+            display: none;
+            margin-top: 32px;
+            padding-top: 32px;
+            border-top: 1px solid var(--border);
+        }
+
+        .stats-section.show {
+            display: block;
+        }
+
+        .stats-title {
+            font-size: 12px;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+            margin-bottom: 16px;
+            letter-spacing: 1px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 12px;
+        }
+
+        .stat-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--accent);
+        }
+
+        .stat-label {
+            font-size: 11px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* === SETUP SCREEN === */
+        .setup-content {
+            text-align: center;
+            max-width: 600px;
+        }
+
+        .setup-title {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .setup-subtitle {
+            font-size: 16px;
+            color: var(--text-secondary);
+            margin-bottom: 32px;
+        }
+
+        .tier-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 32px;
+        }
+
+        @media (max-width: 600px) {
+            .tier-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .tier-card {
+            background: var(--bg-secondary);
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            padding: 32px 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .tier-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(0, 212, 170, 0.2), transparent);
+            transition: left 0.5s ease;
+        }
+
+        .tier-card:hover {
+            border-color: var(--accent);
+            transform: translateY(-4px);
+            box-shadow: 0 12px 32px rgba(0, 212, 170, 0.15);
+        }
+
+        .tier-card:hover::before {
+            left: 100%;
+        }
+
+        .tier-card.selected {
+            border-color: var(--accent);
+            background: linear-gradient(135deg, rgba(0, 212, 170, 0.1), rgba(0, 212, 170, 0.05));
+            box-shadow: 0 12px 32px rgba(0, 212, 170, 0.2), inset 0 0 20px rgba(0, 212, 170, 0.1);
+        }
+
+        .tier-amount {
+            font-size: 48px;
+            font-weight: 700;
+            color: var(--accent);
+            margin-bottom: 8px;
+        }
+
+        .tier-label {
+            font-size: 13px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .find-match-btn {
+            background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+            border: none;
+            color: #000;
+            padding: 16px 48px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+            max-width: 300px;
+        }
+
+        .find-match-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 32px rgba(0, 212, 170, 0.4);
+        }
+
+        .find-match-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        /* === MATCHMAKING SCREEN === */
+        .matchmaking-content {
+            text-align: center;
+        }
+
+        .matchmaking-title {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 32px;
+        }
+
+        .loader {
+            display: inline-block;
+            margin-bottom: 24px;
+        }
+
+        .dot {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            background: var(--accent);
+            border-radius: 50%;
+            margin: 0 6px;
+            animation: bounce 1.4s infinite;
+        }
+
+        .dot:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .dot:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        @keyframes bounce {
+            0%, 80%, 100% {
+                transform: translateY(0);
+                opacity: 0.5;
+            }
+            40% {
+                transform: translateY(-12px);
+                opacity: 1;
+            }
+        }
+
+        .opponent-found {
+            display: none;
+            animation: slideIn 0.4s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .opponent-found.show {
+            display: block;
+        }
+
+        .opponent-label {
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .opponent-address {
+            font-family: 'Courier New', monospace;
+            font-size: 16px;
+            color: var(--accent);
+            background: var(--bg-secondary);
+            padding: 12px 16px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            word-break: break-all;
+        }
+
+        /* === PLAY SCREEN === */
+        .play-content {
+            width: 100%;
+            max-width: 700px;
+            padding-bottom: 20px;
+        }
+
+        .players-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .player-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 8px;
+            text-align: center;
+        }
+
+        .player-card.you {
+            border-color: var(--accent);
+        }
+
+        .player-label {
+            font-size: 11px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+
+        .player-name {
+            font-size: 13px;
+            font-family: 'Courier New', monospace;
+            color: var(--text-primary);
+            word-break: break-all;
+        }
+
+        /* === COUNTDOWN OVERLAY === */
+        .countdown-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #0a0a1a;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 200;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .countdown-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .countdown-number {
+            font-size: 120px;
+            font-weight: 700;
+            color: var(--accent);
+            animation: countPulse 0.8s ease-out;
+            text-shadow: 0 0 60px rgba(0, 212, 170, 0.5);
+        }
+
+        .countdown-label {
+            font-size: 18px;
+            color: var(--text-secondary);
+            margin-top: 16px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        @keyframes countPulse {
+            0% { transform: scale(1.8); opacity: 0; }
+            50% { transform: scale(1); opacity: 1; }
+            100% { transform: scale(0.95); opacity: 1; }
+        }
+
+        .timer-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .timer-ring {
+            position: relative;
+            width: 100px;
+            height: 100px;
+            margin-bottom: 4px;
+        }
+
+        .timer-svg {
+            width: 100%;
+            height: 100%;
+            transform: rotate(-90deg);
+        }
+
+        .timer-circle-bg {
+            fill: none;
+            stroke: var(--border);
+            stroke-width: 4;
+        }
+
+        .timer-circle {
+            fill: none;
+            stroke: var(--accent);
+            stroke-width: 4;
+            stroke-dasharray: 377;
+            stroke-dashoffset: 0;
+            stroke-linecap: round;
+        }
+
+        .timer-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--accent);
+            font-variant-numeric: tabular-nums;
+        }
+
+        .elapsed-timer {
+            font-size: 14px;
+            color: var(--text-secondary);
+            font-variant-numeric: tabular-nums;
+            font-family: 'Courier New', monospace;
+            margin-top: 4px;
+        }
+
+        .question-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
+            text-align: center;
+        }
+
+        .question-text {
+            font-size: 18px;
+            font-weight: 600;
+            line-height: 1.5;
+        }
+
+        .image-placeholder {
+            border-radius: 8px;
+            margin: 8px 0 0 0;
+            text-align: center;
+            min-height: 0;
+        }
+
+        .image-placeholder img {
+            max-width: 100%;
+            max-height: min(200px, 25vh);
+            border-radius: 8px;
+            object-fit: contain;
+            background: rgba(0, 212, 170, 0.05);
+            border: 1px solid var(--border);
+        }
+
+        .image-placeholder .img-loading {
+            background: rgba(0, 212, 170, 0.1);
+            border: 1px dashed var(--border);
+            border-radius: 8px;
+            padding: 40px;
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+
+        .answers-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+
+        .answer-btn {
+            background: var(--bg-secondary);
+            border: 2px solid var(--border);
+            color: var(--text-primary);
+            padding: 14px 12px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .answer-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 212, 170, 0.1);
+            transition: left 0.3s ease;
+        }
+
+        .answer-btn:hover:not(:disabled) {
+            border-color: var(--accent);
+            transform: translateY(-2px);
+        }
+
+        .answer-btn:hover:not(:disabled)::before {
+            left: 100%;
+        }
+
+        .answer-btn.selected {
+            border-color: var(--accent);
+            background: linear-gradient(135deg, rgba(0, 212, 170, 0.15), rgba(0, 212, 170, 0.05));
+            box-shadow: inset 0 0 12px rgba(0, 212, 170, 0.2);
+        }
+
+        .answer-btn:disabled {
+            cursor: not-allowed;
+        }
+
+        .answer-btn.correct {
+            border-color: var(--win);
+            background: linear-gradient(135deg, rgba(0, 212, 170, 0.2), rgba(0, 212, 170, 0.1));
+        }
+
+        .answer-btn.wrong {
+            border-color: var(--lose);
+            background: linear-gradient(135deg, rgba(255, 71, 87, 0.2), rgba(255, 71, 87, 0.1));
+        }
+
+        .waiting-message {
+            text-align: center;
+            padding: 14px;
+            background: rgba(0, 212, 170, 0.1);
+            border: 1px solid rgba(0, 212, 170, 0.3);
+            border-radius: 8px;
+            color: var(--accent);
+            font-size: 14px;
+            font-weight: 500;
+            display: none;
+        }
+
+        .waiting-message.show {
+            display: block;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(0, 212, 170, 0.3);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* === RESULTS SCREEN === */
+        .results-content {
+            text-align: center;
+            max-width: 600px;
+        }
+
+        .result-banner {
+            font-size: 64px;
+            font-weight: 700;
+            padding: 32px;
+            border-radius: 12px;
+            margin-bottom: 32px;
+            animation: popIn 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        }
+
+        @keyframes popIn {
+            0% {
+                transform: scale(0.5);
+                opacity: 0;
+            }
+            100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        .result-banner.win {
+            background: linear-gradient(135deg, rgba(0, 212, 170, 0.2), rgba(0, 212, 170, 0.1));
+            border: 2px solid var(--win);
+            color: var(--win);
+        }
+
+        .result-banner.loss {
+            background: linear-gradient(135deg, rgba(255, 71, 87, 0.2), rgba(255, 71, 87, 0.1));
+            border: 2px solid var(--lose);
+            color: var(--lose);
+        }
+
+        .result-banner.draw {
+            background: linear-gradient(135deg, rgba(255, 165, 0, 0.2), rgba(255, 165, 0, 0.1));
+            border: 2px solid var(--draw);
+            color: var(--draw);
+        }
+
+        .result-details {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 32px;
+            text-align: left;
+        }
+
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--border);
+            font-size: 14px;
+        }
+
+        .detail-row:last-child {
+            border-bottom: none;
+        }
+
+        .detail-label {
+            color: var(--text-secondary);
+        }
+
+        .detail-value {
+            font-weight: 600;
+            color: var(--text-primary);
+            font-family: 'Courier New', monospace;
+        }
+
+        .payout-section {
+            background: linear-gradient(135deg, rgba(0, 212, 170, 0.1), rgba(0, 212, 170, 0.05));
+            border: 1px solid rgba(0, 212, 170, 0.3);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 32px;
+        }
+
+        .payout-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+
+        .payout-amount {
+            font-size: 36px;
+            font-weight: 700;
+            color: var(--accent);
+        }
+
+        .results-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            max-width: 400px;
+            margin: 0 auto;
+        }
+
+        @media (max-width: 500px) {
+            .results-buttons {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+            border: none;
+            color: #000;
+            padding: 14px 24px;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(0, 212, 170, 0.4);
+        }
+
+        .btn-secondary {
+            background: var(--bg-secondary);
+            border: 2px solid var(--border);
+            color: var(--text-primary);
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-secondary:hover {
+            border-color: var(--accent);
+            transform: translateY(-2px);
+        }
+
+        .solana-link {
+            color: var(--accent);
+            text-decoration: none;
+            font-weight: 600;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .solana-link:hover {
+            text-decoration: underline;
+        }
+
+        .tooltip {
+            position: relative;
+            display: inline-block;
+        }
+
+        .tooltip .tooltiptext {
+            visibility: hidden;
+            width: 200px;
+            background-color: rgba(0, 0, 0, 0.8);
+            color: #fff;
+            text-align: center;
+            border-radius: 6px;
+            padding: 8px;
+            position: absolute;
+            z-index: 1;
+            bottom: 125%;
+            left: 50%;
+            margin-left: -100px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            font-size: 12px;
+            white-space: nowrap;
+        }
+
+        .tooltip:hover .tooltiptext {
+            visibility: visible;
+            opacity: 1;
+        }
+
+        /* Mobile adjustments */
+        @media (max-width: 600px) {
+            .game-title {
+                font-size: 36px;
+            }
+
+            .game-emoji {
+                font-size: 48px;
+            }
+
+            .setup-title {
+                font-size: 24px;
+            }
+
+            .result-banner {
+                font-size: 48px;
+            }
+
+            .timer-ring {
+                width: 100px;
+                height: 100px;
+            }
+
+            .timer-text {
+                font-size: 28px;
+            }
+
+            .question-text {
+                font-size: 16px;
+            }
+
+            .answer-btn {
+                padding: 14px 12px;
+                font-size: 13px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="preview-badge">PREVIEW</div>
+
+    <div class="container">
+        <!-- LANDING SCREEN -->
+        <div class="screen active" id="landing">
+            <div class="landing-content">
+                <div class="game-emoji">🧠</div>
+                <h1 class="game-title">Common Sense or Nonsense?</h1>
+                <p class="game-subtitle">1v1 Trivia Wagering on Solana</p>
+
+                <div class="wallet-section">
+                    <div class="wallet-disconnected" id="walletDisconnected">
+                        Click below to connect your wallet
+                    </div>
+                    <div class="wallet-connected" id="walletConnected">
+                        <div class="wallet-address" id="walletAddress"></div>
+                        <div class="wallet-balance">$<span id="walletBalance">50.00</span></div>
+                        <div class="balance-label">USDC Balance</div>
+                    </div>
+                </div>
+
+                <button class="connect-btn" id="connectBtn">Connect Wallet</button>
+
+                <div class="mode-section" id="modeSection">
+                    <div class="mode-title">Select Game Mode</div>
+                    <div class="mode-buttons">
+                        <button class="mode-btn" data-mode="random">🎲 Random Match</button>
+                        <button class="mode-btn" data-mode="friend">👥 Challenge Friend</button>
+                    </div>
+
+                    <div class="queue-info">
+                        <div class="queue-row">
+                            <span>Tier 1 Queue ($1):</span>
+                            <span class="queue-count">3 players</span>
+                        </div>
+                        <div class="queue-row">
+                            <span>Tier 2 Queue ($10):</span>
+                            <span class="queue-count">1 player</span>
+                        </div>
+                        <div class="queue-row">
+                            <span>Tier 3 Queue ($100):</span>
+                            <span class="queue-count">0 players</span>
+                        </div>
+                        <div class="queue-row">
+                            <span>Tier 4 Queue ($1,000):</span>
+                            <span class="queue-count">0 players</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="stats-section" id="statsSection">
+                    <div class="stats-title">Session Stats</div>
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-number" id="statWins">0</div>
+                            <div class="stat-label">Wins</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number" id="statDraws">0</div>
+                            <div class="stat-label">Draws</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number" id="statLosses">0</div>
+                            <div class="stat-label">Losses</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SETUP SCREEN -->
+        <div class="screen" id="setup">
+            <div class="setup-content">
+                <h2 class="setup-title">Select Wager</h2>
+                <p class="setup-subtitle">Choose your stakes</p>
+
+                <div class="tier-grid">
+                    <div class="tier-card" data-tier="1">
+                        <div class="tier-amount">$1</div>
+                        <div class="tier-label">Tier 1</div>
+                    </div>
+                    <div class="tier-card" data-tier="2">
+                        <div class="tier-amount">$10</div>
+                        <div class="tier-label">Tier 2</div>
+                    </div>
+                    <div class="tier-card" data-tier="3">
+                        <div class="tier-amount">$100</div>
+                        <div class="tier-label">Tier 3</div>
+                    </div>
+                    <div class="tier-card" data-tier="4">
+                        <div class="tier-amount">$1,000</div>
+                        <div class="tier-label">Tier 4</div>
+                    </div>
+                </div>
+
+                <button class="find-match-btn" id="findMatchBtn" disabled>Find Match</button>
+            </div>
+        </div>
+
+        <!-- MATCHMAKING SCREEN -->
+        <div class="screen" id="matchmaking">
+            <div class="matchmaking-content">
+                <h2 class="matchmaking-title">Finding Opponent...</h2>
+
+                <div class="loader">
+                    <div class="dot"></div>
+                    <div class="dot"></div>
+                    <div class="dot"></div>
+                </div>
+
+                <div class="opponent-found" id="opponentFound">
+                    <p class="opponent-label">Opponent Found</p>
+                    <div class="opponent-address" id="opponentAddress"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- COUNTDOWN OVERLAY -->
+        <div class="countdown-overlay" id="countdownOverlay">
+            <div class="countdown-number" id="countdownNumber">3</div>
+            <div class="countdown-label">Get Ready</div>
+        </div>
+
+        <!-- PLAY SCREEN -->
+        <div class="screen" id="play">
+            <div class="play-content">
+                <div class="players-row">
+                    <div class="player-card you">
+                        <div class="player-label">You</div>
+                        <div class="player-name" id="playerYou"></div>
+                    </div>
+                    <div class="player-card">
+                        <div class="player-label">Opponent</div>
+                        <div class="player-name" id="playerOpponent"></div>
+                    </div>
+                </div>
+
+                <div class="timer-section">
+                    <div class="timer-ring">
+                        <svg class="timer-svg" viewBox="0 0 120 120">
+                            <circle class="timer-circle-bg" cx="60" cy="60" r="54"/>
+                            <circle class="timer-circle" id="timerCircle" cx="60" cy="60" r="54"/>
+                        </svg>
+                        <div class="timer-text" id="timerText">10.00</div>
+                    </div>
+                    <div class="elapsed-timer" id="elapsedTimer">0.00s</div>
+                </div>
+
+                <div class="question-card">
+                    <div class="question-text" id="questionText"></div>
+                    <div class="image-placeholder" id="imagePlaceholder"></div>
+                </div>
+
+                <div class="answers-grid" id="answersGrid"></div>
+
+                <div class="waiting-message" id="waitingMessage">
+                    <span class="spinner"></span>Waiting for opponent...
+                </div>
+            </div>
+        </div>
+
+        <!-- RESULTS SCREEN -->
+        <div class="screen" id="results">
+            <div class="results-content">
+                <div class="result-banner" id="resultBanner"></div>
+
+                <div class="result-details" id="resultDetails"></div>
+
+                <div class="payout-section">
+                    <div class="payout-label" id="payoutLabel">Prize Winnings</div>
+                    <div class="payout-amount" id="payoutAmount">$0.00</div>
+                </div>
+
+                <div class="results-buttons">
+                    <button class="btn-primary" id="playAgainBtn">Play Again</button>
+                    <button class="btn-secondary" id="viewSolanaBtn">
+                        <span class="tooltip">
+                            View on Solana
+                            <span class="tooltiptext">Coming soon — devnet deployment pending</span>
+                        </span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ============ GAME STATE ============
+        const game = {
+            screen: 'landing',
+            walletConnected: false,
+            walletAddress: null,
+            selectedTier: null,
+            selectedMode: null,
+            playerAnswer: null,
+            playerTime: null,
+            opponentAnswer: null,
+            opponentTime: null,
+            currentQuestion: null,
+            shuffledOptions: null,       // the shuffled option strings
+            correctShuffledIdx: null,    // index of correct answer in shuffled array
+            stats: { wins: 0, draws: 0, losses: 0 },
+            timerInterval: null,
+            elapsedInterval: null,
+            countdownTimeout: null,
+            timeRemaining: 10000,        // ms remaining (countdown)
+            questionStartTime: null,     // when question became answerable
+        };
+
+        const TIME_LIMIT_MS = 10000;
+        const CIRCUMFERENCE = 2 * Math.PI * 54; // ~339.29
+
+        // ============ QUESTIONS DATABASE (50 animal image questions) ============
+        const QUESTIONS = [
+            { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/3/37/African_Bush_Elephant.jpg/500px-African_Bush_Elephant.jpg", options: ["Rhinoceros", "Elephant", "Hippopotamus", "Zebra"], correct: 1 },
+            { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/9/9e/Giraffe_Mikumi_National_Park.jpg/500px-Giraffe_Mikumi_National_Park.jpg", options: ["Zebra", "Giraffe", "Camel", "Ostrich"], correct: 1 },
+            { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/0/07/Emperor_Penguin_Manchot_empereur.jpg", options: ["Puffin", "Penguin", "Duck", "Dolphin"], correct: 1 },
+            { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/8/84/Greater_flamingo_%28Phoenicopterus_roseus%29.jpg/500px-Greater_flamingo_%28Phoenicopterus_roseus%29.jpg", options: ["Parrot", "Flamingo", "Toucan", "Eagle"], correct: 1 },
+            { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/1/10/Tursiops_truncatus_01.jpg/960px-Tursiops_truncatus_01.jpg", options: ["Whale", "Dolphin", "Shark", "Seal"], correct: 1 },
+            { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0d/Kangaroo_and_joey03.jpg/500px-Kangaroo_and_joey03.jpg", options: ["Wallaby", "Kangaroo", "Wombat", "Koala"], correct: 1 },
+            { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3c/Giant_Panda_2004-03-2.jpg/960px-Giant_Panda_2004-03-2.jpg", options: ["Bear", "Panda", "Koala", "Raccoon"], correct: 1 },
+            { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e3/Plains_Zebra_Equus_quagga.jpg/500px-Plains_Zebra_Equus_quagga.jpg", options: ["Horse", "Zebra", "Donkey", "Giraffe"], correct: 1 },
+            { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/5/57/Octopus2.jpg/960px-Octopus2.jpg", options: ["Jellyfish", "Octopus", "Starfish", "Crab"], correct: 1 },
+            { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c5/Peacock_Plumage.jpg/960px-Peacock_Plumage.jpg", options: ["Pheasant", "Peacock", "Turkey", "Crane"], correct: 1 },
+            { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/49/Koala_climbing_tree.jpg/960px-Koala_climbing_tree.jpg", options: ["Lemur", "Koala", "Panda", "Sloth"], correct: 1 },
+            { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5f/Bradypus_variegatus.jpg/960px-Bradypus_variegatus.jpg", options: ["Koala", "Sloth", "Lemur", "Monkey"], correct: 1 },
+            { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/7/72/Igel.JPG/960px-Igel.JPG", options: ["Mouse", "Hedgehog", "Shrew", "Mole"], correct: 1 },
+            { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4b/Hippocampus.jpg/500px-Hippocampus.jpg", options: ["Pipefish", "Seahorse", "Fish", "Shrimp"], correct: 1 },
+            { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/1/11/Ramphastos_toco.jpg", options: ["Parrot", "Toucan", "Woodpecker", "Macaw"], correct: 1 },
+            { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/2/2d/Mountain_Gorilla.jpg/500px-Mountain_Gorilla.jpg", options: ["Chimpanzee", "Gorilla", "Monkey", "Gibbon"], correct: 1 },
+            { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4f/Ursus_maritimus_Steve_Amstrup.jpg/960px-Ursus_maritimus_Steve_Amstrup.jpg", options: ["Grizzly Bear", "Polar Bear", "Panda", "Seal"], correct: 1 },
+            { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/2/23/Bubo_virginianus_06.jpg/500px-Bubo_virginianus_06.jpg", options: ["Hawk", "Owl", "Eagle", "Falcon"], correct: 1 },
+            { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/f/f6/AxolotlBE.jpg", options: ["Salamander", "Axolotl", "Newt", "Tadpole"], correct: 1 },
+            { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/3/32/Ornithorhynchus.jpg/960px-Ornithorhynchus.jpg", options: ["Mongoose", "Platypus", "Otter", "Mole"], correct: 1 },
+            { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/8/83/Porcupine-BioDome.jpg/500px-Porcupine-BioDome.jpg", options: ["Mouse", "Porcupine", "Squirrel", "Mole"], correct: 1 },
+            { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b4/Nine-banded_Armadillo.jpg/960px-Nine-banded_Armadillo.jpg", options: ["Anteater", "Armadillo", "Aardvark", "Badger"], correct: 1 },
+            { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/b/bb/Asterias_rubens.jpg/960px-Asterias_rubens.jpg", options: ["Sea Urchin", "Starfish", "Jellyfish", "Clam"], correct: 1 },
+            { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d0/Ceratotherium_simum.jpg/960px-Ceratotherium_simum.jpg", options: ["Hippopotamus", "Rhinoceros", "Elephant", "Anteater"], correct: 1 },
+            { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/9/98/Hippo_at_dawn.jpg/960px-Hippo_at_dawn.jpg", options: ["Rhinoceros", "Hippopotamus", "Elephant", "Seal"], correct: 1 },
+            { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/c/ce/Noaa-walrus22.jpg/960px-Noaa-walrus22.jpg", options: ["Penguin", "Walrus", "Hippopotamus", "Manatee"], correct: 1 },
+            { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/8/8b/Moose_superior.jpg/960px-Moose_superior.jpg", options: ["Elk", "Moose", "Deer", "Caribou"], correct: 1 },
+            { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/8/8d/American_bison_k5680-1.jpg/960px-American_bison_k5680-1.jpg", options: ["Buffalo", "Bison", "Cattle", "Yak"], correct: 1 },
+            { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/b/bd/Nile_crocodile_head.jpg/960px-Nile_crocodile_head.jpg", options: ["Lizard", "Crocodile", "Turtle", "Snake"], correct: 1 },
+            { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/e/ec/Iguana_iguana_Portoviejo_01.jpg/960px-Iguana_iguana_Portoviejo_01.jpg", options: ["Lizard", "Iguana", "Monitor", "Gecko"], correct: 1 },
+            { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/3/38/Calypte_anna.jpg/960px-Calypte_anna.jpg", options: ["Sparrow", "Hummingbird", "Finch", "Swallow"], correct: 1 },
+            { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/1/1e/Bald_Eagle_Portrait.jpg/500px-Bald_Eagle_Portrait.jpg", options: ["Hawk", "Eagle", "Falcon", "Vulture"], correct: 1 },
+            { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/7/77/Big-eared-townsend-fledermaus.jpg", options: ["Rodent", "Bat", "Bird", "Mole"], correct: 1 },
+            { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/1/15/Sea_otter_cropped.jpg", options: ["Mink", "Otter", "Weasel", "Badger"], correct: 1 },
+            { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/6/6b/American_Beaver.jpg", options: ["Muskrat", "Beaver", "Porcupine", "Mink"], correct: 1 },
+            { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/f/fe/Procyon_lotor_%28Common_raccoon%29.jpg/960px-Procyon_lotor_%28Common_raccoon%29.jpg", options: ["Possum", "Raccoon", "Coati", "Badger"], correct: 1 },
+            { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/5/57/Striped_Skunk.jpg/960px-Striped_Skunk.jpg", options: ["Badger", "Skunk", "Weasel", "Possum"], correct: 1 },
+            { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/8/8a/Pindsvinefisk_Diodon_holocanthus.jpg/960px-Pindsvinefisk_Diodon_holocanthus.jpg", options: ["Blowfish", "Pufferfish", "Filefish", "Triggerfish"], correct: 1 },
+            { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/a/ad/Amphiprion_ocellaris_%28Clown_anemonefish%29_by_Nick_Hobgood.jpg/960px-Amphiprion_ocellaris_%28Clown_anemonefish%29_by_Nick_Hobgood.jpg", options: ["Damselfish", "Clownfish", "Goby", "Angelfish"], correct: 1 },
+            { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Dungeness_crab.jpg/500px-Dungeness_crab.jpg", options: ["Hermit Crab", "Crab", "Spider", "Scorpion"], correct: 1 },
+            { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/8/87/Chamaeleo_calyptratus.jpg", options: ["Lizard", "Chameleon", "Snake", "Gecko"], correct: 1 },
+            { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/9/9f/Red_Fox.jpg/960px-Red_Fox.jpg", options: ["Wolf", "Red Fox", "Coyote", "Dog"], correct: 1 },
+            { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/8/82/Monodon_monoceros.jpg/960px-Monodon_monoceros.jpg", options: ["Whale", "Narwhal", "Dolphin", "Beluga"], correct: 1 },
+            { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f0/Trichechus_manatus.jpg/960px-Trichechus_manatus.jpg", options: ["Dolphin", "Manatee", "Whale", "Walrus"], correct: 1 },
+            { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4d/Aurelia_aurita.jpg/960px-Aurelia_aurita.jpg", options: ["Anemone", "Jellyfish", "Coral", "Starfish"], correct: 1 },
+            { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/1/1f/African_Grey_Parrot.jpg/960px-African_Grey_Parrot.jpg", options: ["Toucan", "Parrot", "Macaw", "Cockatoo"], correct: 1 },
+            { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/c/cc/Camelus_dromedarius.jpg/960px-Camelus_dromedarius.jpg", options: ["Horse", "Camel", "Deer", "Goat"], correct: 1 },
+            { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d4/Giant_tortoise.jpg/960px-Giant_tortoise.jpg", options: ["Lizard", "Tortoise", "Snake", "Frog"], correct: 1 },
+            { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/6/6e/Homarus_americanus.jpg/960px-Homarus_americanus.jpg", options: ["Crawfish", "Lobster", "Shrimp", "Crayfish"], correct: 1 },
+            { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/9/94/Helix_aspersa.jpg/960px-Helix_aspersa.jpg", options: ["Slug", "Snail", "Clam", "Oyster"], correct: 1 }
+        ];
+
+        // ============ UTILITY FUNCTIONS ============
+        function generateWalletAddress() {
+            const chars = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+            let addr = '';
+            for (let i = 0; i < 44; i++) addr += chars.charAt(Math.floor(Math.random() * chars.length));
+            return addr;
+        }
+
+        function generateOpponentName() {
+            return `Player_${Math.random().toString(16).substr(2, 4)}`;
+        }
+
+        function shuffleArray(arr) {
+            const s = [...arr];
+            for (let i = s.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [s[i], s[j]] = [s[j], s[i]];
+            }
+            return s;
+        }
+
+        function getRandomQuestion() {
+            return QUESTIONS[Math.floor(Math.random() * QUESTIONS.length)];
+        }
+
+        function settleGame(playerAnswer, playerTime, opponentAnswer, opponentTime, correctIndex) {
+            const playerCorrect = playerAnswer === correctIndex;
+            const opponentCorrect = opponentAnswer === correctIndex;
+
+            if (playerCorrect && !opponentCorrect) return { result: 'win', reason: 'correct_answer' };
+            if (!playerCorrect && opponentCorrect) return { result: 'loss', reason: 'wrong_answer' };
+            if (!playerCorrect && !opponentCorrect) return { result: 'draw', reason: 'both_wrong' };
+
+            // Both correct — faster wins (50ms threshold)
+            const diff = Math.abs(playerTime - opponentTime);
+            if (diff < 50) return { result: 'draw', reason: 'same_speed' };
+            if (playerTime < opponentTime) return { result: 'win', reason: 'faster' };
+            return { result: 'loss', reason: 'slower' };
+        }
+
+        function calculatePayout(result, wager) {
+            if (result === 'win') return ((wager * 2) * 0.97).toFixed(2);
+            if (result === 'draw') return wager.toFixed(2);
+            return '0.00';
+        }
+
+        function getReasonText(reason) {
+            return {
+                correct_answer: 'You answered correctly',
+                wrong_answer: 'Opponent answered correctly',
+                both_wrong: 'Both answered incorrectly',
+                same_speed: 'Both correct, same speed',
+                faster: 'Both correct — you were faster',
+                slower: 'Both correct — opponent was faster'
+            }[reason] || reason;
+        }
+
+        function formatTime(ms) {
+            return (ms / 1000).toFixed(2) + 's';
+        }
+
+        // ============ SCREEN TRANSITIONS ============
+        function showScreen(screenName) {
+            const cur = document.getElementById(game.screen);
+            const next = document.getElementById(screenName);
+            if (cur) { cur.classList.remove('active'); cur.classList.add('exit'); }
+            setTimeout(() => {
+                if (cur) cur.classList.remove('exit');
+                next.classList.add('active');
+                game.screen = screenName;
+            }, 300);
+        }
+
+        // ============ CLEANUP ============
+        function clearAllTimers() {
+            if (game.timerInterval) { clearInterval(game.timerInterval); game.timerInterval = null; }
+            if (game.elapsedInterval) { clearInterval(game.elapsedInterval); game.elapsedInterval = null; }
+            if (game.countdownTimeout) { clearTimeout(game.countdownTimeout); game.countdownTimeout = null; }
+        }
+
+        // ============ LANDING SCREEN ============
+        document.getElementById('connectBtn').addEventListener('click', () => {
+            if (game.walletConnected) return;
+            game.walletConnected = true;
+            game.walletAddress = generateWalletAddress();
+            document.getElementById('walletDisconnected').style.display = 'none';
+            document.getElementById('walletConnected').classList.add('show');
+            document.getElementById('walletAddress').textContent = game.walletAddress;
+            document.getElementById('modeSection').classList.add('show');
+            document.getElementById('connectBtn').disabled = true;
+        });
+
+        document.querySelectorAll('.mode-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                game.selectedMode = e.target.dataset.mode;
+                showScreen('setup');
+            });
+        });
+
+        // ============ SETUP SCREEN ============
+        document.querySelectorAll('.tier-card').forEach(card => {
+            card.addEventListener('click', () => {
+                document.querySelectorAll('.tier-card').forEach(c => c.classList.remove('selected'));
+                card.classList.add('selected');
+                game.selectedTier = parseInt(card.dataset.tier);
+                document.getElementById('findMatchBtn').disabled = false;
+            });
+        });
+
+        document.getElementById('findMatchBtn').addEventListener('click', () => {
+            // Reset matchmaking UI
+            document.getElementById('opponentFound').classList.remove('show');
+            showScreen('matchmaking');
+            startMatchmaking();
+        });
+
+        function startMatchmaking() {
+            setTimeout(() => {
+                const opponentName = generateOpponentName();
+                document.getElementById('opponentAddress').textContent = opponentName;
+                document.getElementById('opponentFound').classList.add('show');
+                setTimeout(() => { startGame(); }, 1500);
+            }, 2500);
+        }
+
+        // ============ 3-SECOND COUNTDOWN ============
+        function runCountdown(callback) {
+            const overlay = document.getElementById('countdownOverlay');
+            const numEl = document.getElementById('countdownNumber');
+            overlay.classList.add('active');
+
+            let count = 3;
+            numEl.textContent = count;
+            // Re-trigger animation
+            numEl.style.animation = 'none';
+            void numEl.offsetHeight;
+            numEl.style.animation = '';
+
+            const tick = () => {
+                count--;
+                if (count > 0) {
+                    numEl.textContent = count;
+                    numEl.style.animation = 'none';
+                    void numEl.offsetHeight;
+                    numEl.style.animation = '';
+                    game.countdownTimeout = setTimeout(tick, 1000);
+                } else {
+                    // Show "GO!" briefly
+                    numEl.textContent = 'GO!';
+                    numEl.style.animation = 'none';
+                    void numEl.offsetHeight;
+                    numEl.style.animation = '';
+                    game.countdownTimeout = setTimeout(() => {
+                        overlay.classList.remove('active');
+                        callback();
+                    }, 600);
+                }
+            };
+
+            game.countdownTimeout = setTimeout(tick, 1000);
+        }
+
+        // ============ PLAY SCREEN ============
+        function startGame() {
+            clearAllTimers();
+
+            // SECURITY: Do NOT pick or render the question yet.
+            // Question data must not exist in DOM or JS state until countdown ends.
+            game.currentQuestion = null;
+            game.shuffledOptions = null;
+            game.correctShuffledIdx = null;
+            game.playerAnswer = null;
+            game.playerTime = null;
+            game.opponentAnswer = null;
+            game.opponentTime = null;
+            game.timeRemaining = TIME_LIMIT_MS;
+            game.questionStartTime = null;
+
+            // Set up player names
+            document.getElementById('playerYou').textContent = game.walletAddress.substr(0, 16) + '...';
+            document.getElementById('playerOpponent').textContent = document.getElementById('opponentAddress').textContent;
+
+            // Reset timer display
+            document.getElementById('timerText').textContent = '10.00';
+            document.getElementById('timerCircle').style.strokeDashoffset = '0';
+            document.getElementById('timerText').style.color = 'var(--accent)';
+            document.getElementById('timerCircle').style.stroke = 'var(--accent)';
+            document.getElementById('elapsedTimer').textContent = '0.00s';
+
+            // SECURITY: Clear question area — show empty placeholders during countdown
+            document.getElementById('questionText').textContent = '';
+            document.getElementById('imagePlaceholder').innerHTML = '';
+            document.getElementById('answersGrid').innerHTML = '';
+            document.getElementById('waitingMessage').classList.remove('show');
+
+            // Show play screen, then run 3-second countdown
+            showScreen('play');
+
+            setTimeout(() => {
+                runCountdown(() => {
+                    // SECURITY: Question is picked and rendered ONLY after countdown ends.
+                    // This is the earliest moment question data enters JS state or DOM.
+                    const q = getRandomQuestion();
+                    game.currentQuestion = q;
+                    game.shuffledOptions = shuffleArray(q.options);
+                    game.correctShuffledIdx = game.shuffledOptions.indexOf(q.options[q.correct]);
+
+                    renderQuestion();
+                    game.questionStartTime = Date.now();
+                    startTimers();
+                    simulateOpponentAnswer();
+                });
+            }, 400);
+        }
+
+        function renderQuestion() {
+            // SECURITY: This is only called after countdown finishes.
+            // Before this call, questionText is empty and answersGrid has no children.
+            document.getElementById('questionText').textContent = game.currentQuestion.text;
+            const imgContainer = document.getElementById('imagePlaceholder');
+            imgContainer.innerHTML = '';
+            if (game.currentQuestion.image) {
+                const img = document.createElement('img');
+                img.src = game.currentQuestion.image;
+                img.alt = 'Identify this animal';
+                img.draggable = false;
+                img.oncontextmenu = (e) => e.preventDefault(); // prevent right-click save
+                imgContainer.appendChild(img);
+            }
+
+            const grid = document.getElementById('answersGrid');
+            grid.innerHTML = game.shuffledOptions
+                .map((opt, idx) => `<button class="answer-btn" data-index="${idx}">${opt}</button>`)
+                .join('');
+
+            document.querySelectorAll('.answer-btn').forEach((btn, idx) => {
+                btn.addEventListener('click', () => selectAnswer(idx));
+            });
+        }
+
+        function selectAnswer(selectedIdx) {
+            if (game.playerAnswer !== null || !game.questionStartTime) return;
+
+            game.playerAnswer = selectedIdx;
+            game.playerTime = Date.now() - game.questionStartTime;
+
+            // Stop the elapsed timer ticking
+            if (game.elapsedInterval) { clearInterval(game.elapsedInterval); game.elapsedInterval = null; }
+
+            // Freeze elapsed display at answer time
+            document.getElementById('elapsedTimer').textContent = formatTime(game.playerTime);
+
+            const correctIdx = game.correctShuffledIdx;
+            const buttons = document.querySelectorAll('.answer-btn');
+            buttons.forEach((btn, idx) => {
+                btn.disabled = true;
+                if (idx === selectedIdx) btn.classList.add('selected');
+                if (idx === correctIdx) btn.classList.add('correct');
+                if (idx === selectedIdx && idx !== correctIdx) btn.classList.add('wrong');
+            });
+
+            document.getElementById('waitingMessage').classList.add('show');
+
+            // Check if opponent already answered
+            if (game.opponentAnswer !== null) {
+                setTimeout(() => finishGame(), 800);
+            }
+        }
+
+        function simulateOpponentAnswer() {
+            // Opponent answers in 2–5s with gaussian-ish distribution (image questions take longer)
+            const u1 = Math.random(), u2 = Math.random();
+            const gaussian = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+            const delay = Math.max(2000, Math.min(5000, 3200 + gaussian * 700));
+
+            setTimeout(() => {
+                const correctIdx = game.correctShuffledIdx;
+                const isCorrect = Math.random() < 0.7;
+
+                if (isCorrect) {
+                    game.opponentAnswer = correctIdx;
+                } else {
+                    const wrong = [0, 1, 2, 3].filter(i => i !== correctIdx);
+                    game.opponentAnswer = wrong[Math.floor(Math.random() * wrong.length)];
+                }
+                game.opponentTime = delay;
+
+                // If player already answered, finish
+                if (game.playerAnswer !== null) {
+                    setTimeout(() => finishGame(), 800);
+                }
+            }, delay);
+        }
+
+        function startTimers() {
+            // High-frequency timer for countdown + elapsed
+            const startTime = Date.now();
+
+            game.timerInterval = setInterval(() => {
+                const elapsed = Date.now() - startTime;
+                const remaining = Math.max(0, TIME_LIMIT_MS - elapsed);
+
+                // Update countdown ring
+                const secs = remaining / 1000;
+                document.getElementById('timerText').textContent = secs.toFixed(2);
+                const offset = CIRCUMFERENCE * (1 - remaining / TIME_LIMIT_MS);
+                document.getElementById('timerCircle').style.strokeDashoffset = offset;
+
+                // Color shift as time runs low
+                if (secs <= 3) {
+                    document.getElementById('timerText').style.color = 'var(--lose)';
+                    document.getElementById('timerCircle').style.stroke = 'var(--lose)';
+                } else {
+                    document.getElementById('timerText').style.color = 'var(--accent)';
+                    document.getElementById('timerCircle').style.stroke = 'var(--accent)';
+                }
+
+                // Time's up
+                if (remaining <= 0) {
+                    clearInterval(game.timerInterval);
+                    game.timerInterval = null;
+                    if (game.playerAnswer === null) {
+                        // Auto-submit wrong answer (index -1 will never match correct)
+                        game.playerAnswer = -1;
+                        game.playerTime = TIME_LIMIT_MS;
+                        document.getElementById('elapsedTimer').textContent = formatTime(TIME_LIMIT_MS);
+                        // Disable all buttons, show correct
+                        const buttons = document.querySelectorAll('.answer-btn');
+                        buttons.forEach((btn, idx) => {
+                            btn.disabled = true;
+                            if (idx === game.correctShuffledIdx) btn.classList.add('correct');
+                        });
+                        document.getElementById('waitingMessage').classList.add('show');
+                        if (game.opponentAnswer !== null) {
+                            setTimeout(() => finishGame(), 800);
+                        }
+                    }
+                }
+            }, 30); // ~33fps for smooth countdown
+
+            // Separate elapsed counter (ticks up from 0)
+            game.elapsedInterval = setInterval(() => {
+                if (game.playerAnswer !== null) return; // stop updating once answered
+                const elapsed = Date.now() - game.questionStartTime;
+                document.getElementById('elapsedTimer').textContent = formatTime(elapsed);
+            }, 10); // 100fps for hundredths precision
+        }
+
+        function finishGame() {
+            clearAllTimers();
+
+            const settlement = settleGame(
+                game.playerAnswer,
+                game.playerTime,
+                game.opponentAnswer,
+                game.opponentTime,
+                game.correctShuffledIdx
+            );
+
+            showResults(settlement);
+        }
+
+        // ============ RESULTS SCREEN ============
+        function showResults(settlement) {
+            const wagerAmounts = [0, 1, 10, 100, 1000];
+            const wager = wagerAmounts[game.selectedTier];
+            const payout = calculatePayout(settlement.result, wager);
+
+            // Update stats
+            if (settlement.result === 'win') game.stats.wins++;
+            else if (settlement.result === 'loss') game.stats.losses++;
+            else game.stats.draws++;
+            updateStats();
+
+            // Banner
+            const bannerText = { win: '🎉 YOU WIN', loss: '😔 YOU LOSE', draw: '🤝 DRAW' }[settlement.result];
+            document.getElementById('resultBanner').className = 'result-banner ' + (settlement.result === 'loss' ? 'loss' : settlement.result);
+            document.getElementById('resultBanner').textContent = bannerText;
+
+            // Get answer text cleanly
+            const correctAnswer = game.currentQuestion.options[game.currentQuestion.correct];
+            let playerAnswerText = 'Time expired';
+            if (game.playerAnswer >= 0 && game.playerAnswer < game.shuffledOptions.length) {
+                playerAnswerText = game.shuffledOptions[game.playerAnswer];
+            }
+            const playerWasCorrect = game.playerAnswer === game.correctShuffledIdx;
+
+            document.getElementById('resultDetails').innerHTML = `
+                <div class="detail-row">
+                    <span class="detail-label">Your Answer:</span>
+                    <span class="detail-value" style="color: ${playerWasCorrect ? 'var(--win)' : 'var(--lose)'}">${playerAnswerText}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Correct Answer:</span>
+                    <span class="detail-value" style="color: var(--win)">${correctAnswer}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Your Time:</span>
+                    <span class="detail-value">${formatTime(game.playerTime)}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Opponent Time:</span>
+                    <span class="detail-value">${formatTime(game.opponentTime)}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Result:</span>
+                    <span class="detail-value">${getReasonText(settlement.reason)}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Wager:</span>
+                    <span class="detail-value">$${wager} USDC</span>
+                </div>
+            `;
+
+            // Payout
+            const payoutLabel = settlement.result === 'win' ? 'Prize Winnings (3% fee deducted)' :
+                                settlement.result === 'draw' ? 'Wager Returned' : 'Amount Lost';
+            document.getElementById('payoutLabel').textContent = payoutLabel;
+            document.getElementById('payoutAmount').textContent = `$${payout}`;
+            document.getElementById('payoutAmount').style.color =
+                settlement.result === 'win' ? 'var(--win)' :
+                settlement.result === 'draw' ? 'var(--draw)' : 'var(--lose)';
+
+            showScreen('results');
+        }
+
+        function updateStats() {
+            document.getElementById('statWins').textContent = game.stats.wins;
+            document.getElementById('statDraws').textContent = game.stats.draws;
+            document.getElementById('statLosses').textContent = game.stats.losses;
+        }
+
+        document.getElementById('playAgainBtn').addEventListener('click', () => {
+            document.getElementById('statsSection').classList.add('show');
+            // Reset matchmaking UI for next round
+            document.getElementById('opponentFound').classList.remove('show');
+            showScreen('matchmaking');
+            startMatchmaking();
+        });
+
+        document.getElementById('viewSolanaBtn').addEventListener('click', () => {
+            // Tooltip shows on hover
+        });
+
+        updateStats();
+    </script>
+</body>
+</html>
