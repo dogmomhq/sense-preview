@@ -368,6 +368,7 @@
         <!-- PLAY -->
         <div class="screen" id="play">
             <div class="play-content">
+                <div id="roundIndicator" style="display:none; text-align:center; font-size:14px; color:var(--accent); margin-bottom:8px; font-weight:600; letter-spacing:1px; text-transform:uppercase;">Round 1</div>
                 <div class="players-row">
                     <div class="player-card you"><div class="player-label">You</div><div class="player-name" id="playerYou"></div></div>
                     <div class="player-card"><div class="player-label">Opponent</div><div class="player-name" id="playerOpponent"></div></div>
@@ -437,6 +438,9 @@
         countdownTimeout: null,
         timeRemaining: 10000,
         questionStartTime: null,
+        wantsRematch: false,
+        opponentWantsRematch: false,
+        roundNumber: 1,
     };
 
     const TIME_LIMIT_MS = 10000;
@@ -616,6 +620,26 @@
             if (G.playerAnswer !== null) {
                 setTimeout(() => finishGame(), 800);
             }
+        }
+        if (data.type === 'rematch') {
+            G.opponentWantsRematch = true;
+            if (G.wantsRematch) {
+                startRematch();
+            } else {
+                // Show that opponent is waiting
+                const btn = document.getElementById('playAgainBtn');
+                btn.textContent = 'Opponent wants rematch — tap to play!';
+                btn.style.animation = 'pulse 1s infinite';
+            }
+        }
+        if (data.type === 'rematch-start') {
+            // Guest receives new game params from host
+            G.gameId = data.gameId;
+            G.selectedTier = data.tier;
+            G.roundNumber = data.round;
+            document.getElementById('roundIndicator').textContent = 'Round ' + G.roundNumber;
+            document.getElementById('roundIndicator').style.display = 'block';
+            startGame();
         }
     }
 
@@ -915,7 +939,7 @@
                     document.getElementById('elapsedTimer').textContent = formatTime(TIME_LIMIT_MS);
                     document.querySelectorAll('.answer-btn').forEach((btn, i) => { btn.disabled = true; if (i === G.correctShuffledIdx) btn.classList.add('correct'); });
                     document.getElementById('waitingMessage').classList.add('show');
-                    send({ type: 'answer', answerIndex: -1, time: TIME_LIMIT_MS });
+                    send({ type: 'answer', answerIndex: -1, time: TIME_LIMIT_MS, from: G.playerName });
                     if (G.opponentAnswer !== null) setTimeout(() => finishGame(), 800);
                 }
             }
@@ -966,6 +990,14 @@
         document.getElementById('payoutAmount').textContent = `$${payout}`;
         document.getElementById('payoutAmount').style.color = settlement.result === 'win' ? 'var(--win)' : settlement.result === 'draw' ? 'var(--draw)' : 'var(--lose)';
 
+        // Reset play again button for rematch flow
+        const paBtn = document.getElementById('playAgainBtn');
+        paBtn.textContent = 'Play Again';
+        paBtn.disabled = false;
+        paBtn.style.animation = '';
+        G.wantsRematch = false;
+        G.opponentWantsRematch = false;
+
         showScreen('results');
     }
 
@@ -975,11 +1007,40 @@
         document.getElementById('statLosses').textContent = G.stats.losses;
     }
 
+    function startRematch() {
+        G.wantsRematch = false;
+        G.opponentWantsRematch = false;
+        G.roundNumber++;
+        // Host picks a new game ID for fresh question
+        if (G.isHost) {
+            G.gameId = generateGameId();
+            send({ type: 'rematch-start', gameId: G.gameId, tier: G.selectedTier, round: G.roundNumber, from: G.playerName });
+        }
+        document.getElementById('roundIndicator').textContent = 'Round ' + G.roundNumber;
+        document.getElementById('roundIndicator').style.display = 'block';
+        startGame();
+    }
+
     document.getElementById('playAgainBtn').addEventListener('click', () => {
         document.getElementById('statsSection').classList.add('show');
-        // Clean up old connection
+
+        // If multiplayer with active connection, do rematch flow
+        if (G.selectedMode === 'friend' && mqttClient) {
+            G.wantsRematch = true;
+            send({ type: 'rematch', from: G.playerName });
+            if (G.opponentWantsRematch) {
+                startRematch();
+            } else {
+                // Show waiting state on the button
+                const btn = document.getElementById('playAgainBtn');
+                btn.textContent = 'Waiting for opponent...';
+                btn.disabled = true;
+            }
+            return;
+        }
+
+        // Solo/random mode — go back to landing
         if (mqttClient) { mqttClient.end(true); mqttClient = null; }
-        // Clear hash
         history.replaceState(null, '', window.location.pathname);
         showScreen('landing');
     });
