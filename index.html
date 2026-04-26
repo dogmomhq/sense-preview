@@ -613,66 +613,114 @@
         conn.on('error', (err) => { console.error('Connection error:', err); });
     }
 
+    // PeerJS config — use multiple STUN/TURN servers for reliability
+    const PEER_CONFIG = {
+        debug: 1,
+        config: {
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' },
+                { urls: 'stun:stun2.l.google.com:19302' },
+                { urls: 'stun:stun.relay.metered.ca:80' },
+            ]
+        }
+    };
+
     function createHostPeer(gameId) {
-        // Prefix to avoid collisions on PeerJS cloud
         const peerId = 'sense-' + gameId;
-        const peer = new Peer(peerId, { debug: 0 });
+        if (G.peer) { G.peer.destroy(); G.peer = null; }
+        const peer = new Peer(peerId, PEER_CONFIG);
         G.peer = peer;
 
-        peer.on('open', () => {
+        peer.on('open', (id) => {
+            console.log('Host peer open:', id);
             const link = window.location.origin + window.location.pathname + '#' + gameId;
             document.getElementById('shareLink').textContent = link;
             showScreen('waiting');
         });
 
         peer.on('connection', (conn) => {
+            console.log('Host got connection from:', conn.peer);
             setupConnection(conn);
             conn.on('open', () => {
-                // Wait for guest's joined message
+                console.log('Host: data channel open');
             });
         });
 
         peer.on('error', (err) => {
-            console.error('Peer error:', err);
+            console.error('Host peer error:', err.type, err);
             if (err.type === 'unavailable-id') {
-                alert('Game ID already in use. Try again.');
-                showScreen('setup');
+                // ID taken — append random suffix and retry
+                G.gameId = gameId + Math.floor(Math.random() * 10);
+                createHostPeer(G.gameId);
             }
+        });
+
+        peer.on('disconnected', () => {
+            console.log('Host disconnected from signaling, reconnecting...');
+            if (!peer.destroyed) peer.reconnect();
         });
     }
 
     function joinAsGuest(gameId) {
         showScreen('joining');
-        const peer = new Peer(undefined, { debug: 0 });
+        if (G.peer) { G.peer.destroy(); G.peer = null; }
+        const peer = new Peer(undefined, PEER_CONFIG);
         G.peer = peer;
+        let retries = 0;
+        const MAX_RETRIES = 5;
 
-        peer.on('open', () => {
-            document.getElementById('joinStatus').textContent = 'Connecting to host...';
-            const conn = peer.connect('sense-' + gameId, { reliable: true });
+        function attemptConnect() {
+            if (retries >= MAX_RETRIES) {
+                document.getElementById('joinStatus').textContent = 'Could not connect after multiple attempts. Ask host to create a new game.';
+                return;
+            }
+            retries++;
+            const attempt = retries;
+            console.log(`Join attempt ${attempt}/${MAX_RETRIES}`);
+            document.getElementById('joinStatus').textContent = `Connecting to host... (attempt ${attempt})`;
+
+            const conn = peer.connect('sense-' + gameId, { reliable: true, serialization: 'json' });
+
+            const timeout = setTimeout(() => {
+                if (!G.conn || !G.conn.open) {
+                    console.log(`Attempt ${attempt} timed out, retrying...`);
+                    attemptConnect();
+                }
+            }, 4000);
 
             conn.on('open', () => {
+                clearTimeout(timeout);
                 setupConnection(conn);
-                document.getElementById('joinStatus').textContent = 'Connected! Waiting for game to start...';
+                document.getElementById('joinStatus').textContent = 'Connected! Starting game...';
                 document.getElementById('joinStatus').className = 'connection-status connected';
                 send({ type: 'joined', name: G.playerName });
             });
 
             conn.on('error', (err) => {
-                document.getElementById('joinStatus').textContent = 'Failed to connect. Game may not exist.';
-                console.error('Connection error:', err);
+                clearTimeout(timeout);
+                console.error(`Attempt ${attempt} error:`, err);
+                setTimeout(attemptConnect, 1000);
             });
+        }
 
-            // Timeout if can't connect
-            setTimeout(() => {
-                if (!G.conn || !G.conn.open) {
-                    document.getElementById('joinStatus').textContent = 'Could not find game. The link may have expired.';
-                }
-            }, 10000);
+        peer.on('open', () => {
+            console.log('Guest peer open, attempting connection...');
+            attemptConnect();
         });
 
         peer.on('error', (err) => {
-            console.error('Peer error:', err);
-            document.getElementById('joinStatus').textContent = 'Connection failed: ' + err.type;
+            console.error('Guest peer error:', err.type, err);
+            if (err.type === 'peer-unavailable') {
+                // Host not found yet — retry after a short delay
+                document.getElementById('joinStatus').textContent = 'Host not found, retrying...';
+                setTimeout(attemptConnect, 2000);
+            }
+        });
+
+        peer.on('disconnected', () => {
+            console.log('Guest disconnected from signaling, reconnecting...');
+            if (!peer.destroyed) peer.reconnect();
         });
     }
 
