@@ -604,14 +604,15 @@
                 if (hostPingInterval) { clearInterval(hostPingInterval); hostPingInterval = null; }
                 document.getElementById('connectionStatus').textContent = `${G.opponentName} connected!`;
                 document.getElementById('connectionStatus').className = 'connection-status connected';
+                // startGame() will send the 'start' message — don't send it here too
                 setTimeout(() => {
-                    send({ type: 'start', hostName: G.playerName, tier: G.selectedTier, from: G.playerName });
                     startGame();
                 }, 1000);
             }
         }
         if (data.type === 'start') {
-            if (!G.isHost) {
+            if (!G.isHost && (G.screen === 'joining' || G.screen === 'waiting')) {
+                if (joinRetryInterval) { clearInterval(joinRetryInterval); joinRetryInterval = null; }
                 G.opponentName = data.hostName;
                 G.selectedTier = data.tier;
                 startGame();
