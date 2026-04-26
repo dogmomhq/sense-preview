@@ -642,6 +642,9 @@
                     preloadedImg.alt = 'Identify this';
                     preloadedImg.draggable = false;
                     preloadedImg.oncontextmenu = e => e.preventDefault();
+                    preloadedImg.onerror = () => {
+                        imgC.innerHTML = '<div style="padding:40px 20px;color:var(--text-secondary);font-size:14px;">Image loading — answer from the options!</div>';
+                    };
                     imgC.appendChild(preloadedImg);
                 }
                 const grid = document.getElementById('answersGrid');
