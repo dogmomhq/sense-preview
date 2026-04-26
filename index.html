@@ -320,7 +320,7 @@
                     <div class="tier-card" data-tier="3"><div class="tier-amount">$100</div><div class="tier-label">Tier 3</div></div>
                     <div class="tier-card" data-tier="4"><div class="tier-amount">$1,000</div><div class="tier-label">Tier 4</div></div>
                 </div>
-                <button class="find-match-btn" id="findMatchBtn" disabled>Create Challenge</button>
+                <!-- Tier tap goes straight to next screen -->
             </div>
         </div>
 
@@ -704,27 +704,27 @@
 
     // ============ SETUP ============
     document.querySelectorAll('.tier-card').forEach(card => {
-        card.addEventListener('click', () => {
+        card.addEventListener('click', (e) => {
+            const target = e.target.closest('.tier-card');
+            if (!target) return;
             document.querySelectorAll('.tier-card').forEach(c => c.classList.remove('selected'));
-            card.classList.add('selected');
-            G.selectedTier = parseInt(card.dataset.tier);
-            document.getElementById('findMatchBtn').disabled = false;
-            document.getElementById('findMatchBtn').textContent = G.selectedMode === 'friend' ? 'Create Challenge' : 'Find Match';
-        });
-    });
+            target.classList.add('selected');
+            G.selectedTier = parseInt(target.dataset.tier);
 
-    document.getElementById('findMatchBtn').addEventListener('click', () => {
-        if (G.selectedMode === 'friend') {
-            G.isHost = true;
-            G.gameId = generateGameId();
-            createHostPeer(G.gameId);
-        } else {
-            // Random mode — play against bot
-            G.isHost = true;
-            G.gameId = generateGameId();
-            G.opponentName = generatePlayerName();
-            startGame();
-        }
+            // Go straight to next screen — no extra button tap needed
+            setTimeout(() => {
+                if (G.selectedMode === 'friend') {
+                    G.isHost = true;
+                    G.gameId = generateGameId();
+                    createHostPeer(G.gameId);
+                } else {
+                    G.isHost = true;
+                    G.gameId = generateGameId();
+                    G.opponentName = generatePlayerName();
+                    startGame();
+                }
+            }, 300);
+        });
     });
 
     // ============ WAITING SCREEN ============
