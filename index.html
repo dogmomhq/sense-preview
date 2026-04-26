@@ -625,11 +625,11 @@
 
         showScreen('play');
 
-        // Preload image during countdown so it's cached when we render
+        // Preload image during countdown — fetched through server proxy (no URL leak)
         let preloadedImg = null;
-        if (q.image) {
+        if (q.imageToken) {
             preloadedImg = new Image();
-            preloadedImg.src = q.image;
+            preloadedImg.src = SERVER_URL.replace('wss://', 'https://').replace('ws://', 'http://') + '/img/' + q.imageToken;
         }
 
         setTimeout(() => {
