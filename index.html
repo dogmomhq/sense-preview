@@ -441,6 +441,7 @@
         wantsRematch: false,
         opponentWantsRematch: false,
         roundNumber: 1,
+        opponentTimeout: null,
     };
 
     const TIME_LIMIT_MS = 10000;
@@ -580,15 +581,16 @@
         if (G.timerInterval) { clearInterval(G.timerInterval); G.timerInterval = null; }
         if (G.elapsedInterval) { clearInterval(G.elapsedInterval); G.elapsedInterval = null; }
         if (G.countdownTimeout) { clearTimeout(G.countdownTimeout); G.countdownTimeout = null; }
+        if (G.opponentTimeout) { clearTimeout(G.opponentTimeout); G.opponentTimeout = null; }
     }
 
     // ============ MQTT CONNECTION (HiveMQ free public broker) ============
     let mqttClient = null;
+    let mqttTopic = null; // stays constant across rematches
 
     function send(data) {
-        if (!mqttClient || !G.gameId) return;
-        const topic = 'sense-game/' + G.gameId;
-        mqttClient.publish(topic, JSON.stringify(data));
+        if (!mqttClient || !mqttTopic) return;
+        mqttClient.publish(mqttTopic, JSON.stringify(data));
     }
 
     function onMessage(data) {
@@ -617,6 +619,7 @@
         if (data.type === 'answer') {
             G.opponentAnswer = data.answerIndex;
             G.opponentTime = data.time;
+            if (G.opponentTimeout) { clearTimeout(G.opponentTimeout); G.opponentTimeout = null; }
             if (G.playerAnswer !== null) {
                 setTimeout(() => finishGame(), 800);
             }
@@ -644,7 +647,7 @@
     }
 
     function connectMQTT(gameId, callback) {
-        const topic = 'sense-game/' + gameId;
+        mqttTopic = 'sense-game/' + gameId; // lock topic for this session
         // Use HiveMQ free public broker over secure WebSocket
         const url = 'wss://broker.hivemq.com:8884/mqtt';
         const clientId = 'sense_' + Math.random().toString(36).substr(2, 8);
@@ -662,7 +665,7 @@
 
         mqttClient.on('connect', () => {
             console.log('MQTT connected as', clientId);
-            mqttClient.subscribe(topic, { qos: 1 }, (err) => {
+            mqttClient.subscribe(mqttTopic, { qos: 1 }, (err) => {
                 if (err) {
                     console.error('Subscribe error:', err);
                     return;
@@ -828,15 +831,15 @@
     }
 
     // ============ GAME ============
-    function startGame() {
+    function startGame(skipStartMsg) {
         clearAllTimers();
         G.playerAnswer = null; G.playerTime = null;
         G.opponentAnswer = null; G.opponentTime = null;
         G.currentQuestion = null; G.shuffledOptions = null; G.correctShuffledIdx = null;
         G.timeRemaining = TIME_LIMIT_MS; G.questionStartTime = null;
 
-        // If host in multiplayer, tell guest to start
-        if (G.isHost && mqttClient) {
+        // If host in multiplayer, tell guest to start (but not on rematch — rematch-start already sent)
+        if (G.isHost && mqttClient && !skipStartMsg) {
             send({ type: 'start', hostName: G.playerName, tier: G.selectedTier, from: G.playerName });
         }
 
@@ -908,7 +911,18 @@
         // Send answer to opponent
         send({ type: 'answer', answerIndex: idx, time: G.playerTime, from: G.playerName });
 
-        if (G.opponentAnswer !== null) setTimeout(() => finishGame(), 800);
+        if (G.opponentAnswer !== null) {
+            setTimeout(() => finishGame(), 800);
+        } else {
+            // Safety timeout — if opponent answer never arrives, force finish after 15s
+            G.opponentTimeout = setTimeout(() => {
+                if (G.opponentAnswer === null) {
+                    G.opponentAnswer = -1;
+                    G.opponentTime = TIME_LIMIT_MS;
+                    finishGame();
+                }
+            }, 15000);
+        }
     }
 
     function simulateOpponentAnswer() {
@@ -1012,14 +1026,14 @@
         G.wantsRematch = false;
         G.opponentWantsRematch = false;
         G.roundNumber++;
-        // Host picks a new game ID for fresh question
+        // Host picks a new game ID for fresh question (topic stays the same)
         if (G.isHost) {
             G.gameId = generateGameId();
             send({ type: 'rematch-start', gameId: G.gameId, tier: G.selectedTier, round: G.roundNumber, from: G.playerName });
         }
         document.getElementById('roundIndicator').textContent = 'Round ' + G.roundNumber;
         document.getElementById('roundIndicator').style.display = 'block';
-        startGame();
+        startGame(true); // skip sending 'start' — rematch-start already handles it
     }
 
     document.getElementById('playAgainBtn').addEventListener('click', () => {
