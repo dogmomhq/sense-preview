@@ -711,19 +711,17 @@
             target.classList.add('selected');
             G.selectedTier = parseInt(target.dataset.tier);
 
-            // Go straight to next screen — no extra button tap needed
-            setTimeout(() => {
-                if (G.selectedMode === 'friend') {
-                    G.isHost = true;
-                    G.gameId = generateGameId();
-                    createHostPeer(G.gameId);
-                } else {
-                    G.isHost = true;
-                    G.gameId = generateGameId();
-                    G.opponentName = generatePlayerName();
-                    startGame();
-                }
-            }, 300);
+            // Go straight to next screen — instant
+            if (G.selectedMode === 'friend') {
+                G.isHost = true;
+                G.gameId = generateGameId();
+                createHostPeer(G.gameId);
+            } else {
+                G.isHost = true;
+                G.gameId = generateGameId();
+                G.opponentName = generatePlayerName();
+                startGame();
+            }
         });
     });
 
