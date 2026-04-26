@@ -547,7 +547,7 @@
         if (!pCorrect && oCorrect) return { result: 'loss', reason: 'wrong_answer' };
         if (!pCorrect && !oCorrect) return { result: 'draw', reason: 'both_wrong' };
         const diff = Math.abs(pTime - oTime);
-        if (diff < 50) return { result: 'draw', reason: 'same_speed' };
+        if (diff < 10) return { result: 'draw', reason: 'same_speed' };
         if (pTime < oTime) return { result: 'win', reason: 'faster' };
         return { result: 'loss', reason: 'slower' };
     }
@@ -797,6 +797,7 @@
                 document.getElementById('connectBtn').disabled = true;
             }
             G.isHost = false;
+            G.selectedMode = 'friend';
             G.gameId = hash;
             joinAsGuest(hash);
         }
