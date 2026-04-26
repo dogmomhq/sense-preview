@@ -359,6 +359,10 @@
             </div>
         </div>
 
+        <!-- DEBUG LOG -->
+        <div id="debugToggle" style="position:fixed;bottom:8px;right:8px;z-index:9999;background:#222;color:#0f0;font-size:10px;padding:4px 8px;border-radius:4px;cursor:pointer;opacity:0.6;" onclick="document.getElementById('debugPanel').style.display=document.getElementById('debugPanel').style.display==='none'?'block':'none'">LOG</div>
+        <div id="debugPanel" style="display:none;position:fixed;bottom:30px;right:8px;z-index:9998;background:rgba(0,0,0,0.9);color:#0f0;font-size:9px;font-family:monospace;padding:8px;border-radius:6px;max-height:40vh;overflow-y:auto;width:280px;word-break:break-all;"></div>
+
         <!-- COUNTDOWN -->
         <div class="countdown-overlay" id="countdownOverlay">
             <div class="countdown-number" id="countdownNumber">3</div>
@@ -578,6 +582,18 @@
         }, 300);
     }
 
+    // ============ DEBUG LOG ============
+    const debugLog = [];
+    function dlog(msg) {
+        const ts = new Date().toISOString().substr(11,12);
+        const entry = ts + ' ' + msg;
+        debugLog.push(entry);
+        if (debugLog.length > 100) debugLog.shift();
+        const panel = document.getElementById('debugPanel');
+        if (panel) panel.innerHTML = debugLog.map(l => '<div>' + l + '</div>').join('');
+        console.log('[SENSE]', entry);
+    }
+
     function clearAllTimers() {
         if (G.timerInterval) { clearInterval(G.timerInterval); G.timerInterval = null; }
         if (G.elapsedInterval) { clearInterval(G.elapsedInterval); G.elapsedInterval = null; }
@@ -598,6 +614,7 @@
     function onMessage(data) {
         // Ignore our own messages
         if (data.from === G.playerName) return;
+        dlog('RECV ' + data.type + ' from=' + data.from + (data.time ? ' t=' + data.time : '') + ' screen=' + G.screen);
 
         if (data.type === 'joined') {
             G.opponentName = data.name;
@@ -642,7 +659,8 @@
             }
         }
         if (data.type === 'rematch-start') {
-            // Guest receives new game params from host
+            // Guest receives new game params from host — only act if on results screen
+            if (G.screen !== 'results') return;
             G.gameId = data.gameId;
             G.selectedTier = data.tier;
             G.roundNumber = data.round;
@@ -691,11 +709,19 @@
         });
 
         mqttClient.on('error', (err) => {
-            console.error('MQTT error:', err);
+            dlog('MQTT ERROR: ' + err.message);
         });
 
         mqttClient.on('reconnect', () => {
-            console.log('MQTT reconnecting...');
+            dlog('MQTT RECONNECTING');
+        });
+
+        mqttClient.on('close', () => {
+            dlog('MQTT CLOSED');
+        });
+
+        mqttClient.on('offline', () => {
+            dlog('MQTT OFFLINE');
         });
     }
 
@@ -856,8 +882,17 @@
     }
 
     // ============ GAME ============
+    let gameGeneration = 0; // prevents double startGame from corrupting state
+
     function startGame(skipStartMsg) {
+        gameGeneration++;
+        const thisGen = gameGeneration;
+        dlog('startGame gen=' + thisGen + ' skip=' + !!skipStartMsg + ' host=' + G.isHost + ' screen=' + G.screen + ' gid=' + G.gameId);
+
         clearAllTimers();
+        // Also force-hide countdown overlay in case previous round left it
+        document.getElementById('countdownOverlay').classList.remove('active');
+
         G.playerAnswer = null; G.playerTime = null;
         G.opponentAnswer = null; G.opponentTime = null;
         G.currentQuestion = null; G.shuffledOptions = null; G.correctShuffledIdx = null;
@@ -884,7 +919,9 @@
         showScreen('play');
 
         setTimeout(() => {
+            if (gameGeneration !== thisGen) return; // stale — another startGame was called
             runCountdown(() => {
+                if (gameGeneration !== thisGen) return; // stale
                 const qData = getQuestionForGame(G.gameId);
                 G.currentQuestion = qData.question;
                 G.shuffledOptions = qData.shuffledOptions;
@@ -917,6 +954,7 @@
 
     function selectAnswer(idx) {
         if (G.playerAnswer !== null || !G.questionStartTime) return;
+        dlog('selectAnswer idx=' + idx + ' t=' + (Date.now() - G.questionStartTime));
         G.playerAnswer = idx;
         G.playerTime = Date.now() - G.questionStartTime;
 
@@ -948,6 +986,7 @@
             // Safety timeout — if opponent answer never arrives, force finish after 20s
             G.opponentTimeout = setTimeout(() => {
                 if (G.opponentAnswer === null) {
+                    dlog('SAFETY TIMEOUT — opponent answer never received');
                     G.opponentAnswer = -1;
                     G.opponentTime = TIME_LIMIT_MS;
                     finishGame();
@@ -1012,6 +1051,7 @@
     }
 
     function finishGame() {
+        dlog('finishGame pAns=' + G.playerAnswer + ' pT=' + G.playerTime + ' oAns=' + G.opponentAnswer + ' oT=' + G.opponentTime);
         clearAllTimers();
         const settlement = settleGame(G.playerAnswer, G.playerTime, G.opponentAnswer, G.opponentTime, G.correctShuffledIdx);
         showResults(settlement);
@@ -1069,6 +1109,7 @@
     }
 
     function startRematch() {
+        dlog('startRematch host=' + G.isHost + ' round=' + (G.roundNumber+1));
         G.wantsRematch = false;
         G.opponentWantsRematch = false;
         G.roundNumber++;
