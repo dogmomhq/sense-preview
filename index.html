@@ -442,6 +442,7 @@
         opponentWantsRematch: false,
         roundNumber: 1,
         opponentTimeout: null,
+        answerRetry: null,
     };
 
     const TIME_LIMIT_MS = 10000;
@@ -582,6 +583,7 @@
         if (G.elapsedInterval) { clearInterval(G.elapsedInterval); G.elapsedInterval = null; }
         if (G.countdownTimeout) { clearTimeout(G.countdownTimeout); G.countdownTimeout = null; }
         if (G.opponentTimeout) { clearTimeout(G.opponentTimeout); G.opponentTimeout = null; }
+        if (G.answerRetry) { clearInterval(G.answerRetry); G.answerRetry = null; }
     }
 
     // ============ MQTT CONNECTION (HiveMQ free public broker) ============
@@ -619,9 +621,11 @@
             }
         }
         if (data.type === 'answer') {
+            if (G.opponentAnswer !== null) return; // already got it, ignore retries
             G.opponentAnswer = data.answerIndex;
             G.opponentTime = data.time;
             if (G.opponentTimeout) { clearTimeout(G.opponentTimeout); G.opponentTimeout = null; }
+            if (G.answerRetry) { clearInterval(G.answerRetry); G.answerRetry = null; }
             if (G.playerAnswer !== null) {
                 setTimeout(() => finishGame(), 800);
             }
@@ -929,20 +933,26 @@
 
         document.getElementById('waitingMessage').classList.add('show');
 
-        // Send answer to opponent
-        send({ type: 'answer', answerIndex: idx, time: G.playerTime, from: G.playerName });
+        // Send answer to opponent — retry every 2s in case of dropped connection
+        const answerMsg = { type: 'answer', answerIndex: idx, time: G.playerTime, from: G.playerName };
+        send(answerMsg);
+        G.answerRetry = setInterval(() => {
+            if (G.screen !== 'play') { clearInterval(G.answerRetry); G.answerRetry = null; return; }
+            send(answerMsg);
+        }, 2000);
 
         if (G.opponentAnswer !== null) {
+            if (G.answerRetry) { clearInterval(G.answerRetry); G.answerRetry = null; }
             setTimeout(() => finishGame(), 800);
         } else {
-            // Safety timeout — if opponent answer never arrives, force finish after 15s
+            // Safety timeout — if opponent answer never arrives, force finish after 20s
             G.opponentTimeout = setTimeout(() => {
                 if (G.opponentAnswer === null) {
                     G.opponentAnswer = -1;
                     G.opponentTime = TIME_LIMIT_MS;
                     finishGame();
                 }
-            }, 15000);
+            }, 20000);
         }
     }
 
@@ -975,8 +985,23 @@
                     document.getElementById('elapsedTimer').textContent = formatTime(TIME_LIMIT_MS);
                     document.querySelectorAll('.answer-btn').forEach((btn, i) => { btn.disabled = true; if (i === G.correctShuffledIdx) btn.classList.add('correct'); });
                     document.getElementById('waitingMessage').classList.add('show');
-                    send({ type: 'answer', answerIndex: -1, time: TIME_LIMIT_MS, from: G.playerName });
-                    if (G.opponentAnswer !== null) setTimeout(() => finishGame(), 800);
+                    const timeoutMsg = { type: 'answer', answerIndex: -1, time: TIME_LIMIT_MS, from: G.playerName };
+                    send(timeoutMsg);
+                    G.answerRetry = setInterval(() => {
+                        if (G.screen !== 'play') { clearInterval(G.answerRetry); G.answerRetry = null; return; }
+                        send(timeoutMsg);
+                    }, 2000);
+                    if (G.opponentAnswer !== null) {
+                        if (G.answerRetry) { clearInterval(G.answerRetry); G.answerRetry = null; }
+                        setTimeout(() => finishGame(), 800);
+                    } else {
+                        G.opponentTimeout = setTimeout(() => {
+                            if (G.opponentAnswer === null) {
+                                G.opponentAnswer = -1; G.opponentTime = TIME_LIMIT_MS;
+                                finishGame();
+                            }
+                        }, 20000);
+                    }
                 }
             }
         }, 30);
