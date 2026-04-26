@@ -625,17 +625,24 @@
 
         showScreen('play');
 
+        // Preload image during countdown so it's cached when we render
+        let preloadedImg = null;
+        if (q.image) {
+            preloadedImg = new Image();
+            preloadedImg.src = q.image;
+        }
+
         setTimeout(() => {
             runCountdown(() => {
                 // Render question
                 document.getElementById('questionText').textContent = q.text;
                 const imgC = document.getElementById('imagePlaceholder');
                 imgC.innerHTML = '';
-                if (q.image) {
-                    const img = document.createElement('img');
-                    img.src = q.image; img.alt = 'Identify this';
-                    img.draggable = false; img.oncontextmenu = e => e.preventDefault();
-                    imgC.appendChild(img);
+                if (preloadedImg) {
+                    preloadedImg.alt = 'Identify this';
+                    preloadedImg.draggable = false;
+                    preloadedImg.oncontextmenu = e => e.preventDefault();
+                    imgC.appendChild(preloadedImg);
                 }
                 const grid = document.getElementById('answersGrid');
                 grid.innerHTML = q.options.map((opt, i) =>
