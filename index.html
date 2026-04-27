@@ -565,11 +565,25 @@
         }
     }
 
+    const queuedToasts = [];
     function showToast(msg) {
+        // Don't show during active gameplay — queue it
+        if (G.screen === 'play' || G.screen === 'joining') {
+            queuedToasts.push(msg);
+            return;
+        }
         const t = document.getElementById('toast');
         t.textContent = msg;
         t.classList.add('show');
         setTimeout(() => t.classList.remove('show'), 3000);
+    }
+
+    function flushToasts() {
+        if (queuedToasts.length === 0) return;
+        // Show the most recent queued toast after a short delay
+        const msg = queuedToasts.pop();
+        queuedToasts.length = 0; // clear older ones
+        setTimeout(() => showToast(msg), 500);
     }
 
     function renderHistory() {
@@ -622,6 +636,7 @@
 
     // ---- Screen transitions ----
     function showScreen(name) {
+        const prevScreen = G.screen;
         const cur = document.getElementById(G.screen);
         const next = document.getElementById(name);
         if (cur) { cur.classList.remove('active'); cur.classList.add('exit'); }
@@ -629,6 +644,10 @@
             if (cur) cur.classList.remove('exit');
             next.classList.add('active');
             G.screen = name;
+            // Show any queued notifications when leaving gameplay
+            if ((prevScreen === 'play' || prevScreen === 'joining') && name !== 'play' && name !== 'joining') {
+                flushToasts();
+            }
         }, 300);
     }
 
@@ -1028,6 +1047,18 @@
         }
     }
 
+    // ---- Play Again from pending state ----
+    function pendingPlayAgain() {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            wsSend({ type: 'queue', name: G.playerName, tier: G.selectedTier });
+            document.getElementById('joinStatus').textContent = 'Finding a match...';
+            document.getElementById('joinStatus').className = 'connection-status waiting';
+            showScreen('joining');
+        } else {
+            showScreen('landing');
+        }
+    }
+
     // ---- Answer selection ----
     function selectAnswer(idx) {
         if (G.answered || !G.questionStartTime) return;
@@ -1055,7 +1086,7 @@
         // Send to server — different message for async vs challenge
         if (G.asyncMode) {
             wsSend({ type: 'async-answer', matchId: G.asyncMatchId, answerIndex: idx, clientTime: Math.round(elapsed) });
-            // Start pending-release timer: if no result in 4s, save as pending and release to lobby
+            // Show pending buttons after a short delay if no result yet
             if (G.pendingTimeout) clearTimeout(G.pendingTimeout);
             G.pendingTimeout = setTimeout(() => {
                 if (G.screen === 'play' && G.asyncMode && G.answered) {
@@ -1067,8 +1098,16 @@
                         myAnswer: idx,
                         myTime: Math.round(elapsed),
                     });
-                    showToast('Answer submitted — result pending');
-                    showScreen('landing');
+                    // Show pending action buttons — player chooses what to do
+                    const wm = document.getElementById('waitingMessage');
+                    wm.innerHTML = `
+                        <div style="margin-bottom:12px;">Answer submitted — waiting for opponent</div>
+                        <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
+                            <button class="btn-primary" style="padding:10px 20px;font-size:13px;" onclick="pendingPlayAgain()">Play Again</button>
+                            <button class="btn-secondary" style="padding:10px 20px;font-size:13px;" onclick="renderHistory();showScreen('history')">Match History</button>
+                            <button class="btn-secondary" style="padding:10px 20px;font-size:13px;" onclick="showScreen('landing')">Home</button>
+                        </div>
+                    `;
                 }
             }, 4000);
         } else {
