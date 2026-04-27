@@ -833,6 +833,11 @@
                 G.opponentName = msg.opponentName;
                 break;
 
+            case 'async-chain-setup':
+                // Server matched us — do on-chain setup
+                handleChainSetup(msg);
+                break;
+
             case 'async-waiting':
                 // Still waiting for opponent — show status
                 if (G.screen === 'results' || G.screen === 'play') {
@@ -1105,6 +1110,69 @@
             G.questionStartTime = Date.now();
             startTimers();
         });
+    }
+
+    // ---- ON-CHAIN SETUP AFTER MATCH (solana random mode) ----
+    async function handleChainSetup(msg) {
+        const matchId = msg.matchId;
+        if (!matchId) return;
+
+        if (msg.role === 'host') {
+            // We're the host — create on-chain game
+            document.getElementById('joinStatus').textContent = 'Matched! Creating game on chain...';
+            try {
+                G.onChainGameId = Date.now();
+                const prep = await window.PaymentAdapter.prepareGame(G.selectedTier, G.onChainGameId, 'host');
+                if (!prep.ready) {
+                    alert(prep.error || 'Failed to create on-chain game');
+                    showScreen('landing');
+                    return;
+                }
+                G.createTxSig = prep.txSignature || null;
+                // Tell server we're ready
+                wsSend({
+                    type: 'chain-ready', matchId: matchId,
+                    onChainGameId: G.onChainGameId,
+                    wallet: G.walletAddress,
+                });
+                document.getElementById('joinStatus').textContent = 'Waiting for opponent to join...';
+            } catch (e) {
+                alert(e.message || 'On-chain setup failed');
+                showScreen('landing');
+            }
+        } else if (msg.role === 'guest') {
+            // We're the guest — join the host's on-chain game
+            document.getElementById('joinStatus').textContent = 'Joining game on chain...';
+            try {
+                const hostGameId = msg.hostOnChainGameId;
+                if (!hostGameId) {
+                    alert('Missing host game ID');
+                    showScreen('landing');
+                    return;
+                }
+                G.onChainGameId = hostGameId;
+                const prep = await window.PaymentAdapter.prepareGame(G.selectedTier, hostGameId, 'guest');
+                if (!prep.ready) {
+                    alert(prep.error || 'Failed to join on-chain game');
+                    showScreen('landing');
+                    return;
+                }
+                G.joinTxSig = prep.txSignature || null;
+                // Tell server we're ready
+                wsSend({
+                    type: 'chain-ready', matchId: matchId,
+                    onChainGameId: hostGameId,
+                    wallet: G.walletAddress,
+                });
+                document.getElementById('joinStatus').textContent = 'Ready! Waiting for question...';
+            } catch (e) {
+                alert(e.message || 'On-chain join failed');
+                showScreen('landing');
+            }
+        } else if (msg.role === 'guest-wait') {
+            // Waiting for host to set up — just show status
+            document.getElementById('joinStatus').textContent = msg.message || 'Matched! Setting up...';
+        }
     }
 
     // ---- ASYNC RESULT (routes to live screen or game log) ----
@@ -1433,39 +1501,38 @@
             // Generate on-chain game ID (used by server for room + by Solana program)
             G.onChainGameId = Date.now();
 
-            // For solana mode: prepare on-chain transaction before creating WS room
-            if (window.PaymentAdapter.mode !== 'none') {
-                target.style.opacity = '0.5';
-                target.style.pointerEvents = 'none';
-                try {
-                    const prep = await window.PaymentAdapter.prepareGame(G.selectedTier, G.onChainGameId, 'host');
-                    if (!prep.ready) {
-                        alert(prep.error || 'Failed to prepare game');
+            if (G.selectedMode === 'random') {
+                // ---- RANDOM MATCH MODE ----
+                // For solana: only sign approve upfront (no create_game yet).
+                // After server matches, host creates on-chain, guest joins.
+                // For preview: no on-chain needed at all.
+                if (window.PaymentAdapter.mode !== 'none') {
+                    target.style.opacity = '0.5';
+                    target.style.pointerEvents = 'none';
+                    try {
+                        const prep = await window.PaymentAdapter.approveOnly(G.selectedTier);
+                        if (!prep.ready) {
+                            alert(prep.error || 'Failed to approve USDC');
+                            target.style.opacity = '1';
+                            target.style.pointerEvents = 'auto';
+                            return;
+                        }
+                    } catch (err) {
+                        alert(err.message || 'Approval failed');
                         target.style.opacity = '1';
                         target.style.pointerEvents = 'auto';
                         return;
                     }
-                    G.createTxSig = prep.txSignature || null;
-                } catch (err) {
-                    alert(err.message || 'Transaction failed');
                     target.style.opacity = '1';
                     target.style.pointerEvents = 'auto';
-                    return;
                 }
-                target.style.opacity = '1';
-                target.style.pointerEvents = 'auto';
-            }
 
-            if (G.selectedMode === 'random') {
-                // Async random match
                 G.isHost = false;
                 G.asyncMode = true;
                 connectWS(() => {
                     wsSend({
                         type: 'queue', name: G.playerName, tier: G.selectedTier,
                         wallet: G.walletAddress || null,
-                        onChainGameId: G.onChainGameId,
-                        txSignature: G.createTxSig || null,
                         paymentMode: window.PaymentAdapter.mode,
                     });
                 });
@@ -1473,7 +1540,30 @@
                 document.getElementById('joinStatus').className = 'connection-status waiting';
                 showScreen('joining');
             } else {
-                // Challenge mode — create room, get link
+                // ---- CHALLENGE MODE ----
+                // Sign approve + create_game upfront (host always creates)
+                if (window.PaymentAdapter.mode !== 'none') {
+                    target.style.opacity = '0.5';
+                    target.style.pointerEvents = 'none';
+                    try {
+                        const prep = await window.PaymentAdapter.prepareGame(G.selectedTier, G.onChainGameId, 'host');
+                        if (!prep.ready) {
+                            alert(prep.error || 'Failed to prepare game');
+                            target.style.opacity = '1';
+                            target.style.pointerEvents = 'auto';
+                            return;
+                        }
+                        G.createTxSig = prep.txSignature || null;
+                    } catch (err) {
+                        alert(err.message || 'Transaction failed');
+                        target.style.opacity = '1';
+                        target.style.pointerEvents = 'auto';
+                        return;
+                    }
+                    target.style.opacity = '1';
+                    target.style.pointerEvents = 'auto';
+                }
+
                 G.isHost = true;
                 G.asyncMode = false;
                 connectWS(() => {
@@ -1863,6 +1953,41 @@
         window.PaymentAdapter = {
           mode: 'solana',
           _refreshBalance: refreshBalance,
+          _buildCreateGameTx: buildCreateGameTx,
+          _buildJoinGameTx: buildJoinGameTx,
+          _buildCancelGameTx: buildCancelGameTx,
+          _buildApproveTx: buildApproveTx,
+          _getConnection: getConnection,
+          _getWallet: function() { return wallet; },
+
+          // Approve-only: just sign the delegate approval (for random match — game created after match)
+          async approveOnly(tier) {
+            if (!wallet) return { ready: false, error: 'Wallet not connected' };
+            try {
+              const conn = getConnection();
+              const wagerAmount = BigInt(TIER_AMOUNTS_RAW[tier] || 1_000_000);
+              const playerATA = await getATA(wallet.publicKey.toBase58(), USDC_MINT);
+              let usdcBalance = 0;
+              try {
+                const info = await conn.getTokenAccountBalance(playerATA);
+                usdcBalance = parseInt(info.value.amount || '0');
+              } catch {
+                return { ready: false, error: 'No USDC balance found. Get devnet USDC at faucet.circle.com, then try again.' };
+              }
+              if (usdcBalance < Number(wagerAmount)) {
+                const have = (usdcBalance / 1e6).toFixed(2);
+                const need = (Number(wagerAmount) / 1e6).toFixed(2);
+                return { ready: false, error: 'Insufficient USDC. You have $'+have+' but need $'+need+'.' };
+              }
+              const approveTx = await buildApproveTx(Number(wagerAmount));
+              const signed = await wallet.signTransaction(approveTx);
+              const sig = await conn.sendRawTransaction(signed.serialize());
+              await conn.confirmTransaction(sig, 'confirmed');
+              return { ready: true, approveSig: sig };
+            } catch (e) {
+              return { ready: false, error: friendlyError(e) };
+            }
+          },
 
           async connect() {
             const provider = getProvider();
