@@ -817,45 +817,46 @@
 
         list.innerHTML = all.map(m => {
             if (m.isStuck) {
-                const mins = Math.floor((m.secondsRemaining || 0) / 60);
-                const secs = (m.secondsRemaining || 0) % 60;
-                const timerText = m.canRefund ? 'Ready!' : `${mins}:${String(secs).padStart(2,'0')}`;
-                const timerColor = m.canRefund ? 'var(--win)' : 'var(--draw)';
-                return `<div class="history-card" style="border-left:3px solid var(--lose)" data-stuck-id="${m.gameId}" data-seconds="${m.secondsRemaining||0}">
+                const totalSecs = m.secondsRemaining || 0;
+                const hrs = Math.floor(totalSecs / 3600);
+                const mins = Math.floor((totalSecs % 3600) / 60);
+                const secs = totalSecs % 60;
+                const timerText = m.canRefund ? 'Ready!' : (hrs > 0 ? `${hrs}:${String(mins).padStart(2,'0')}:${String(secs).padStart(2,'0')}` : `${mins}:${String(secs).padStart(2,'0')}`);
+                return `<div class="history-card" style="border-left:3px solid var(--draw)" data-stuck-id="${m.gameId}" data-seconds="${totalSecs}">
                     <div class="history-summary">
                         <div style="flex:1">
-                            <span class="history-opp" style="color:var(--lose)">Stuck Game</span><br>
-                            <span class="history-meta">$${m.wagerUSD} USDC locked · No opponent joined</span><br>
-                            <span style="font-size:12px;color:${timerColor};font-weight:600;margin-top:4px;display:inline-block">
-                                ${m.canRefund ? '⏰ Timeout reached — refund available' : '⏳ Refund in: <span class="stuck-timer" data-stuck-id="'+m.gameId+'">'+timerText+'</span>'}
+                            <span class="history-opp" style="color:var(--draw)">Open Game</span><br>
+                            <span class="history-meta">$${m.wagerUSD} USDC · Waiting for opponent</span><br>
+                            <span style="font-size:12px;color:var(--text-secondary);margin-top:4px;display:inline-block">
+                                ${m.canRefund ? '⏰ Auto-refund available' : '⏳ Auto-refund in: <span class="stuck-timer" data-stuck-id="'+m.gameId+'">'+timerText+'</span>'}
                             </span>
                         </div>
-                        <button data-cancel-game="${m.gameId}" onclick="cancelStuckGame(${m.gameId})" style="background:${m.canRefund ? 'var(--win)' : 'var(--lose)'};color:#fff;border:none;padding:8px 16px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap">${m.canRefund ? 'Refund Now' : 'Cancel &amp; Refund'}</button>
+                        <button data-cancel-game="${m.gameId}" onclick="cancelStuckGame(${m.gameId})" style="background:var(--lose);color:#fff;border:none;padding:8px 16px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap">Cancel &amp; Refund</button>
                     </div>
                 </div>`;
             }
             if (m.isPending) {
                 const ago = timeAgo(m.timestamp);
                 const ageMs = Date.now() - m.timestamp;
-                const canCancel = ageMs > 30000; // allow cancel after 30s
-                // Calculate approximate time remaining for pending match
-                const pendingSecsLeft = Math.max(0, Math.round((18 * 60) - (ageMs / 1000))); // ~18 min timeout
-                const pMins = Math.floor(pendingSecsLeft / 60);
+                // 20-min auto-refund timer
+                const pendingSecsLeft = Math.max(0, Math.round((20 * 60) - (ageMs / 1000)));
+                const pHrs = Math.floor(pendingSecsLeft / 3600);
+                const pMins = Math.floor((pendingSecsLeft % 3600) / 60);
                 const pSecs = pendingSecsLeft % 60;
-                const pendingTimerText = pendingSecsLeft <= 0 ? 'Ready!' : `${pMins}:${String(pSecs).padStart(2,'0')}`;
+                const pendingTimerText = pendingSecsLeft <= 0 ? 'Ready!' : (pHrs > 0 ? `${pHrs}:${String(pMins).padStart(2,'0')}:${String(pSecs).padStart(2,'0')}` : `${pMins}:${String(pSecs).padStart(2,'0')}`);
                 const pendingCanRefund = pendingSecsLeft <= 0;
                 return `<div class="history-card pending" data-pending-id="${m.matchId}" data-pending-ts="${m.timestamp}">
                     <div class="history-summary">
                         <div style="flex:1">
                             <span class="history-opp">vs ${m.opponent}</span><br>
                             <span class="history-meta">${ago} · $${m.wager} USDC</span><br>
-                            <span style="font-size:12px;color:${pendingCanRefund ? 'var(--win)' : 'var(--draw)'};font-weight:600;margin-top:4px;display:inline-block">
-                                ${pendingCanRefund ? '⏰ Timeout — cancel available' : '⏳ Refund in: <span class="pending-timer" data-pending-ts="'+m.timestamp+'">'+pendingTimerText+'</span>'}
+                            <span style="font-size:12px;color:var(--text-secondary);margin-top:4px;display:inline-block">
+                                ${pendingCanRefund ? '⏰ Auto-refund available' : '⏳ Auto-refund in: <span class="pending-timer" data-pending-ts="'+m.timestamp+'">'+pendingTimerText+'</span>'}
                             </span>
                         </div>
                         <div style="display:flex;align-items:center;gap:8px">
-                            <div class="history-result pending">Pending...</div>
-                            ${canCancel ? `<button onclick="cancelPendingMatch('${m.matchId}')" style="background:var(--lose);color:#fff;border:none;padding:6px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap">Cancel</button>` : ''}
+                            <div class="history-result pending">Pending</div>
+                            <button onclick="cancelPendingMatch('${m.matchId}')" style="background:var(--lose);color:#fff;border:none;padding:6px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap">Cancel</button>
                         </div>
                     </div>
                 </div>`;
@@ -915,11 +916,11 @@
                     }
                 }
             });
-            // Update pending match timers
+            // Update pending match timers (20 min auto-refund)
             document.querySelectorAll('.pending-timer').forEach(el => {
                 const ts = parseInt(el.dataset.pendingTs || '0');
                 if (!ts) return;
-                const secsLeft = Math.max(0, Math.round((18 * 60) - ((Date.now() - ts) / 1000)));
+                const secsLeft = Math.max(0, Math.round((20 * 60) - ((Date.now() - ts) / 1000)));
                 const m = Math.floor(secsLeft / 60);
                 const s = secsLeft % 60;
                 el.textContent = secsLeft <= 0 ? 'Ready!' : `${m}:${String(s).padStart(2,'0')}`;
@@ -2069,6 +2070,34 @@
           return ata;
         }
 
+        // Check how much the player has delegated to transfer_authority PDA
+        // SPL Token account layout: mint(32) owner(32) amount(8) delegate_option(4) delegate(32) state(1) is_native_option(4) is_native(8) delegated_amount(8) close_authority_option(4) close_authority(32)
+        async function getDelegatedAmount() {
+          if (!wallet) return 0;
+          try {
+            const conn = getConnection();
+            const playerATA = await getATA(wallet.publicKey.toBase58(), USDC_MINT);
+            const [transferAuth] = findPDA(['transfer_auth']);
+            const info = await conn.getAccountInfo(playerATA);
+            if (!info || !info.data || info.data.length < 165) return 0;
+            const data = info.data;
+            const dv = new DataView(data.buffer, data.byteOffset, data.byteLength);
+            // delegate_option at offset 72 (4 bytes, 1 = Some)
+            const hasDelegate = dv.getUint32(72, true);
+            if (hasDelegate !== 1) return 0;
+            // delegate pubkey at offset 76 (32 bytes)
+            const delegateBytes = data.slice(76, 108);
+            const delegateKey = new solanaWeb3.PublicKey(delegateBytes);
+            if (!delegateKey.equals(transferAuth)) return 0;
+            // delegated_amount at offset 121 (8 bytes LE)
+            const delegated = Number(dv.getBigUint64(121, true));
+            return delegated;
+          } catch (e) {
+            console.warn('[adapter] getDelegatedAmount error:', e.message);
+            return 0;
+          }
+        }
+
         function getProvider() {
           if (window.phantom?.solana?.isPhantom) return window.phantom.solana;
           if (window.solana?.isPhantom) return window.solana;
@@ -2272,7 +2301,7 @@
               const gameId = dv.getBigUint64(8, true);
               const wager = dv.getBigUint64(80, true);
               const lastActionSlot = Number(dv.getBigUint64(153, true));
-              const TIMEOUT_SLOTS = 2700; // ~18 min at 0.4s/slot
+              const TIMEOUT_SLOTS = 3000; // ~20 min at 0.4s/slot
               const slotsRemaining = Math.max(0, (lastActionSlot + TIMEOUT_SLOTS) - currentSlot);
               const secondsRemaining = Math.round(slotsRemaining * 0.4);
               const canRefund = slotsRemaining === 0;
