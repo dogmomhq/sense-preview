@@ -1307,31 +1307,16 @@
         if (!matchId) return;
 
         if (msg.role === 'host') {
-            // We're the host (Player A) — already have the question, may be playing.
-            // Do chain setup in the background without interrupting gameplay.
-            console.log('[chain] Host chain setup starting in background for', matchId);
-            try {
-                G.onChainGameId = Date.now();
-                const prep = await window.PaymentAdapter.prepareGame(G.selectedTier, G.onChainGameId, 'host');
-                if (!prep.ready) {
-                    console.error('[chain] Host create failed:', prep.error);
-                    showToast('On-chain game creation failed');
-                    return;
-                }
-                G.createTxSig = prep.txSignature || null;
-                // Tell server we're ready
-                wsSend({
-                    type: 'chain-ready', matchId: matchId,
-                    onChainGameId: G.onChainGameId,
-                    wallet: G.walletAddress,
-                });
-                console.log('[chain] Host chain-ready sent for', matchId);
-            } catch (e) {
-                console.error('[chain] Host chain setup error:', e);
-                showToast('On-chain setup failed: ' + (e.message || 'Unknown error'));
-            }
+            // Host already created game at queue time — just tell server we're ready.
+            // ZERO wallet popups here.
+            console.log('[chain] Host already created game at queue time, sending chain-ready for', matchId);
+            wsSend({
+                type: 'chain-ready', matchId: matchId,
+                onChainGameId: G.onChainGameId,
+                wallet: G.walletAddress,
+            });
         } else if (msg.role === 'guest') {
-            // We're the guest — join the host's on-chain game
+            // Guest needs to approve + join in ONE transaction (one popup).
             document.getElementById('joinStatus').textContent = 'Joining game on chain...';
             try {
                 const hostGameId = msg.hostOnChainGameId;
@@ -1348,7 +1333,6 @@
                     return;
                 }
                 G.joinTxSig = prep.txSignature || null;
-                // Tell server we're ready
                 wsSend({
                     type: 'chain-ready', matchId: matchId,
                     onChainGameId: hostGameId,
@@ -1724,15 +1708,18 @@
                     target.style.opacity = '0.5';
                     target.style.pointerEvents = 'none';
                     try {
-                        const prep = await window.PaymentAdapter.approveOnly(G.selectedTier);
+                        // Single popup: approve + create_game bundled together
+                        G.onChainGameId = Date.now();
+                        const prep = await window.PaymentAdapter.prepareGame(G.selectedTier, G.onChainGameId, 'host');
                         if (!prep.ready) {
-                            alert(prep.error || 'Failed to approve USDC');
+                            alert(prep.error || 'Failed to prepare game');
                             target.style.opacity = '1';
                             target.style.pointerEvents = 'auto';
                             return;
                         }
+                        G.createTxSig = prep.txSignature || null;
                     } catch (err) {
-                        alert(err.message || 'Approval failed');
+                        alert(err.message || 'Game setup failed');
                         target.style.opacity = '1';
                         target.style.pointerEvents = 'auto';
                         return;
@@ -1748,6 +1735,7 @@
                         type: 'queue', name: G.playerName, tier: G.selectedTier,
                         wallet: G.walletAddress || null,
                         paymentMode: window.PaymentAdapter.mode,
+                        onChainGameId: G.onChainGameId || null,
                     });
                 });
                 document.getElementById('joinStatus').textContent = 'Finding a match...';
