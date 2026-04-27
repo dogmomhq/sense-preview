@@ -970,6 +970,11 @@
                 handleChainSetup(msg);
                 break;
 
+            case 'chain-complete':
+                // Chain setup done for both sides — Player A can dismiss any waiting indicator
+                console.log('[chain] Chain complete for', msg.matchId);
+                break;
+
             case 'async-waiting':
                 // Still waiting for opponent — show status
                 if (G.screen === 'results' || G.screen === 'play') {
@@ -1269,14 +1274,15 @@
         if (!matchId) return;
 
         if (msg.role === 'host') {
-            // We're the host — create on-chain game
-            document.getElementById('joinStatus').textContent = 'Matched! Creating game on chain...';
+            // We're the host (Player A) — already have the question, may be playing.
+            // Do chain setup in the background without interrupting gameplay.
+            console.log('[chain] Host chain setup starting in background for', matchId);
             try {
                 G.onChainGameId = Date.now();
                 const prep = await window.PaymentAdapter.prepareGame(G.selectedTier, G.onChainGameId, 'host');
                 if (!prep.ready) {
-                    alert(prep.error || 'Failed to create on-chain game');
-                    showScreen('landing');
+                    console.error('[chain] Host create failed:', prep.error);
+                    showToast('On-chain game creation failed');
                     return;
                 }
                 G.createTxSig = prep.txSignature || null;
@@ -1286,10 +1292,10 @@
                     onChainGameId: G.onChainGameId,
                     wallet: G.walletAddress,
                 });
-                document.getElementById('joinStatus').textContent = 'Waiting for opponent to join...';
+                console.log('[chain] Host chain-ready sent for', matchId);
             } catch (e) {
-                alert(e.message || 'On-chain setup failed');
-                showScreen('landing');
+                console.error('[chain] Host chain setup error:', e);
+                showToast('On-chain setup failed: ' + (e.message || 'Unknown error'));
             }
         } else if (msg.role === 'guest') {
             // We're the guest — join the host's on-chain game
