@@ -333,7 +333,7 @@
                         <div class="queue-row"><span>Tier 1 Queue ($1):</span><span class="queue-count">3 players</span></div>
                         <div class="queue-row"><span>Tier 2 Queue ($10):</span><span class="queue-count">1 player</span></div>
                         <div class="queue-row"><span>Tier 3 Queue ($100):</span><span class="queue-count">0 players</span></div>
-                        <div class="queue-row"><span>Tier 4 Queue ($1,000):</span><span class="queue-count">0 players</span></div>
+                        <div class="queue-row"><span>Test Queue ($0.10):</span><span class="queue-count">0 players</span></div>
                     </div>
                 </div>
 
@@ -361,7 +361,7 @@
                     <div class="tier-card" data-tier="1"><div class="tier-amount">$1</div><div class="tier-label">Tier 1</div></div>
                     <div class="tier-card" data-tier="2"><div class="tier-amount">$10</div><div class="tier-label">Tier 2</div></div>
                     <div class="tier-card" data-tier="3"><div class="tier-amount">$100</div><div class="tier-label">Tier 3</div></div>
-                    <div class="tier-card" data-tier="4"><div class="tier-amount">$1,000</div><div class="tier-label">Tier 4</div></div>
+                    <div class="tier-card" data-tier="4"><div class="tier-amount">$0.10</div><div class="tier-label">Test</div></div>
                 </div>
             </div>
         </div>
@@ -442,6 +442,9 @@
                 <div class="payout-section">
                     <div class="payout-label" id="payoutLabel">Prize Winnings</div>
                     <div class="payout-amount" id="payoutAmount">$0.00</div>
+                    <div class="balance-after" id="balanceAfter" style="margin-top:12px;font-size:14px;color:var(--text-secondary);">
+                        Balance: <span id="newBalance" style="color:var(--accent);font-weight:600;">$50.00 USDC</span>
+                    </div>
                 </div>
                 <div class="results-buttons">
                     <button class="btn-primary" id="playAgainBtn">Play Again</button>
@@ -489,6 +492,7 @@
         answered: false,
         questionStartTime: null,
         stats: { wins: 0, draws: 0, losses: 0 },
+        simulatedBalance: 50.00,
         timerInterval: null,
         elapsedInterval: null,
         countdownTimeout: null,
@@ -516,6 +520,14 @@
         if (result === 'win') return ((wager * 2) * 0.97).toFixed(2);
         if (result === 'draw') return wager.toFixed(2);
         return '0.00';
+    }
+
+    function updateSimulatedBalance(result, wager) {
+        if (result === 'win') G.simulatedBalance += parseFloat(((wager * 2) * 0.97).toFixed(2)) - wager;
+        else if (result === 'loss') G.simulatedBalance -= wager;
+        // draw = no change
+        document.getElementById('walletBalance').textContent = G.simulatedBalance.toFixed(2);
+        document.getElementById('newBalance').textContent = '$' + G.simulatedBalance.toFixed(2) + ' USDC';
     }
 
     // ---- Game Log ----
@@ -972,7 +984,7 @@
         const isCurrentMatch = matchId === G.asyncMatchId && (G.screen === 'play' || G.screen === 'results');
 
         const result = msg.you.result;
-        const wagerAmounts = [0, 1, 10, 100, 1000];
+        const wagerAmounts = [0, 1, 10, 100, 0.10];
         const wager = wagerAmounts[G.selectedTier] || 1;
         const payout = calculatePayout(result, wager);
 
@@ -1037,6 +1049,10 @@
                 paBtn.style.animation = '';
                 paBtn.dataset.waiting = '';
 
+                // Update simulated balance
+                const asyncWagerAmounts = [0, 1, 10, 100, 0.10];
+                const asyncWager = asyncWagerAmounts[G.selectedTier] || 1;
+                updateSimulatedBalance(result, asyncWager);
                 showScreen('results');
             }, 1200);
         } else {
@@ -1090,7 +1106,7 @@
             if (G.pendingTimeout) clearTimeout(G.pendingTimeout);
             G.pendingTimeout = setTimeout(() => {
                 if (G.screen === 'play' && G.asyncMode && G.answered) {
-                    const wagerAmounts = [0, 1, 10, 100, 1000];
+                    const wagerAmounts = [0, 1, 10, 100, 0.10];
                     markPending(G.asyncMatchId, {
                         opponent: G.opponentName,
                         wager: wagerAmounts[G.selectedTier] || 1,
@@ -1156,7 +1172,7 @@
         const result = msg.you.result; // 'win', 'loss', 'draw'
         const myAnswer = msg.you.answer;
         const myTime = msg.you.time; // server authoritative time
-        const wagerAmounts = [0, 1, 10, 100, 1000];
+        const wagerAmounts = [0, 1, 10, 100, 0.10];
         const wagerForLog = wagerAmounts[G.selectedTier] || 1;
         const payoutForLog = calculatePayout(result, wagerForLog);
 
@@ -1199,7 +1215,7 @@
 
         // Small delay to show correct/wrong highlights
         setTimeout(() => {
-            const wagerAmounts = [0, 1, 10, 100, 1000];
+            const wagerAmounts = [0, 1, 10, 100, 0.10];
             const wager = wagerAmounts[G.selectedTier] || 1;
             const payout = calculatePayout(result, wager);
 
@@ -1233,6 +1249,8 @@
             paBtn.style.animation = '';
             paBtn.dataset.waiting = '';
 
+            // Update simulated balance
+            updateSimulatedBalance(result, wager);
             showScreen('results');
         }, 1200);
     }
