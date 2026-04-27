@@ -1247,6 +1247,15 @@
             if (G.pendingTimeout) { clearTimeout(G.pendingTimeout); G.pendingTimeout = null; }
             clearAllTimers();
 
+            // Snap play screen timer to server's authoritative time (eliminates mismatch)
+            const serverMyTime = msg.you.time;
+            if (serverMyTime != null && msg.you.answer >= 0) {
+                document.getElementById('yourTime').textContent = formatTime(serverMyTime);
+                const remaining = Math.max(0, TIME_LIMIT_MS - serverMyTime);
+                document.getElementById('timerText').textContent = (remaining / 1000).toFixed(2);
+                document.getElementById('timerCircle').style.strokeDashoffset = CIRCUMFERENCE * (1 - remaining / TIME_LIMIT_MS);
+            }
+
             G.opponentName = msg.opponent.name || G.opponentName || 'Opponent';
             document.getElementById('playerOpponent').textContent = G.opponentName;
             if (msg.opponent.time != null) document.getElementById('theirTime').textContent = formatTime(msg.opponent.time);
