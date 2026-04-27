@@ -737,6 +737,17 @@
         }
     };
 
+    window.cancelPendingMatch = function(matchId) {
+        // Tell server to cancel, remove from local pending
+        wsSend({ type: 'cancel-match', matchId: matchId });
+        delete G.pendingMatches[matchId];
+        // Also remove from matchLog if it was logged
+        G.matchLog = G.matchLog.filter(function(m) { return m.matchId !== matchId; });
+        updateHistoryBadge();
+        renderHistory();
+        showToast('Match cancelled');
+    };
+
     // Fetch match history from server DB and merge into G.matchLog
     function hydrateHistory(playerName) {
         var httpUrl = SERVER_URL.replace('wss://', 'https://').replace('ws://', 'http://');
@@ -814,10 +825,15 @@
             }
             if (m.isPending) {
                 const ago = timeAgo(m.timestamp);
+                const ageMs = Date.now() - m.timestamp;
+                const canCancel = ageMs > 30000; // allow cancel after 30s
                 return `<div class="history-card pending">
                     <div class="history-summary">
                         <div><span class="history-opp">vs ${m.opponent}</span><br><span class="history-meta">${ago} · $${m.wager} USDC</span></div>
-                        <div class="history-result pending">Pending...</div>
+                        <div style="display:flex;align-items:center;gap:8px">
+                            <div class="history-result pending">Pending...</div>
+                            ${canCancel ? `<button onclick="cancelPendingMatch('${m.matchId}')" style="background:var(--lose);color:#fff;border:none;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap">Cancel</button>` : ''}
+                        </div>
                     </div>
                 </div>`;
             }
@@ -986,9 +1002,25 @@
                 handleAsyncResult(msg);
                 break;
 
+            case 'match-cancelled':
+                // Server confirmed cancellation
+                if (msg.matchId) {
+                    delete G.pendingMatches[msg.matchId];
+                    G.matchLog = G.matchLog.filter(function(m) { return m.matchId !== msg.matchId; });
+                    updateHistoryBadge();
+                    renderHistory();
+                }
+                break;
+
             case 'async-expired':
-                alert('No opponent found. Try again!');
-                showScreen('landing');
+                // Clean up pending match from history
+                if (msg.matchId) {
+                    delete G.pendingMatches[msg.matchId];
+                    G.matchLog = G.matchLog.filter(function(m) { return m.matchId !== msg.matchId; });
+                    updateHistoryBadge();
+                }
+                showToast('No opponent found — match expired');
+                if (G.screen === 'play' || G.screen === 'joining') showScreen('landing');
                 break;
 
             // ---- CHALLENGE MODE MESSAGES ----
