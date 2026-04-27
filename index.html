@@ -545,6 +545,7 @@
         matchLog: [],         // completed matches: { matchId, opponent, result, myAnswer, oppAnswer, myTime, oppTime, correctIdx, correctAnswer, reason, wager, payout, timestamp, txn }
         pendingMatches: {},   // matchId -> { opponent, wager, tier, timestamp, myAnswer, myTime } — awaiting result
         pendingTimeout: null, // timer to release player after answering
+        stuckGames: [],       // on-chain WaitingForOpponent games: { pubkey, gameId, wager, wagerUSD }
     };
 
     let ws = null;
@@ -641,10 +642,12 @@
 
     function updateHistoryBadge() {
         const pending = Object.keys(G.pendingMatches).length;
+        const stuck = (G.stuckGames || []).length;
+        const total = pending + stuck;
         const badge = document.getElementById('historyBadge');
         if (badge) {
-            badge.textContent = pending;
-            badge.style.display = pending > 0 ? 'inline-block' : 'none';
+            badge.textContent = total;
+            badge.style.display = total > 0 ? 'inline-block' : 'none';
         }
     }
 
@@ -669,10 +672,39 @@
         setTimeout(() => showToast(msg), 500);
     }
 
+    // Cancel a stuck on-chain game — called from history UI
+    window.cancelStuckGame = async function(gameId) {
+        const btn = document.querySelector(`[data-cancel-game="${gameId}"]`);
+        if (btn) { btn.disabled = true; btn.textContent = 'Cancelling...'; }
+        try {
+            const result = await window.PaymentAdapter.cancelGame(gameId);
+            if (result.success) {
+                // Remove from stuck games list
+                G.stuckGames = G.stuckGames.filter(g => g.gameId !== gameId);
+                updateHistoryBadge();
+                renderHistory();
+                showToast('Game cancelled — USDC refunded!');
+                // Refresh balance
+                if (window.PaymentAdapter._refreshBalance) window.PaymentAdapter._refreshBalance();
+            } else {
+                alert(result.error || 'Cancel failed');
+                if (btn) { btn.disabled = false; btn.textContent = 'Cancel & Refund'; }
+            }
+        } catch (e) {
+            alert(e.message || 'Cancel failed');
+            if (btn) { btn.disabled = false; btn.textContent = 'Cancel & Refund'; }
+        }
+    };
+
     function renderHistory() {
         const list = document.getElementById('historyList');
+        const stuck = (G.stuckGames || []);
         const pending = Object.entries(G.pendingMatches);
-        const all = [...pending.map(([mid, m]) => ({ matchId: mid, ...m, isPending: true })), ...G.matchLog];
+        const all = [
+            ...stuck.map(s => ({ ...s, isStuck: true })),
+            ...pending.map(([mid, m]) => ({ matchId: mid, ...m, isPending: true })),
+            ...G.matchLog
+        ];
 
         if (all.length === 0) {
             list.innerHTML = '<div class="history-empty">No matches yet. Play a game!</div>';
@@ -680,6 +712,14 @@
         }
 
         list.innerHTML = all.map(m => {
+            if (m.isStuck) {
+                return `<div class="history-card" style="border-left:3px solid var(--lose)">
+                    <div class="history-summary">
+                        <div><span class="history-opp" style="color:var(--lose)">Stuck Game</span><br><span class="history-meta">$${m.wagerUSD} USDC locked · No opponent joined</span></div>
+                        <button data-cancel-game="${m.gameId}" onclick="cancelStuckGame(${m.gameId})" style="background:var(--lose);color:#fff;border:none;padding:6px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap">Cancel &amp; Refund</button>
+                    </div>
+                </div>`;
+            }
             if (m.isPending) {
                 const ago = timeAgo(m.timestamp);
                 return `<div class="history-card pending">
@@ -1474,6 +1514,17 @@
             document.getElementById('modeSection').classList.add('show');
             document.getElementById('historyBtnWrap').style.display = 'flex';
             document.getElementById('connectBtn').dispatchEvent(new Event('walletConnected'));
+
+            // Fetch stuck on-chain games in background (don't block connect)
+            if (window.PaymentAdapter.fetchStuckGames) {
+                window.PaymentAdapter.fetchStuckGames().then(stuck => {
+                    G.stuckGames = stuck || [];
+                    if (stuck.length > 0) {
+                        updateHistoryBadge();
+                        showToast(stuck.length + ' stuck game' + (stuck.length > 1 ? 's' : '') + ' found — cancel in History to recover USDC');
+                    }
+                }).catch(() => {});
+            }
         } catch (e) {
             document.getElementById('connectBtn').disabled = false;
             document.getElementById('connectBtn').textContent = 'Connect Wallet';
@@ -1726,6 +1777,7 @@
         async prepareGame() { return { ready: true }; },
         async onResult() { return { txUrl: null }; },
         async cancelGame() { return { success: true }; },
+        async fetchStuckGames() { return []; },
         async disconnect() { return true; },
         getAddress() { return null; },
       };
@@ -1950,9 +2002,50 @@
           } catch { return null; }
         }
 
+        // Fetch on-chain games in WaitingForOpponent state for the connected wallet
+        async function fetchStuckGames() {
+          if (!wallet) return [];
+          try {
+            const conn = getConnection();
+            const programKey = new solanaWeb3.PublicKey(PROGRAM_ID);
+            const walletBytes = wallet.publicKey.toBytes(); // 32 bytes
+
+            // GameState layout: disc(8) + game_id(8) + player_a(32) + player_b(32) + wager(8) + mint(32) + oracle(32) + state(1) + ...
+            // player_a starts at offset 16, state at offset 152
+            // Filter: 171-byte accounts where player_a (offset 16) = my wallet
+            const accounts = await conn.getProgramAccounts(programKey, {
+              filters: [
+                { dataSize: 171 },
+                { memcmp: { offset: 16, bytes: wallet.publicKey.toBase58() } },
+              ],
+            });
+
+            // Client-side filter: state byte at offset 152 must be 0 (WaitingForOpponent)
+            const stuck = [];
+            for (const acc of accounts) {
+              const data = acc.account.data;
+              if (data[152] !== 0) continue; // not WaitingForOpponent
+              const dv = new DataView(data.buffer, data.byteOffset, data.byteLength);
+              const gameId = dv.getBigUint64(8, true);
+              const wager = dv.getBigUint64(80, true);
+              stuck.push({
+                pubkey: acc.pubkey.toBase58(),
+                gameId: Number(gameId),
+                wager: Number(wager),
+                wagerUSD: (Number(wager) / 1e6).toFixed(2),
+              });
+            }
+            return stuck;
+          } catch (e) {
+            console.warn('[adapter] fetchStuckGames error:', e.message);
+            return [];
+          }
+        }
+
         window.PaymentAdapter = {
           mode: 'solana',
           _refreshBalance: refreshBalance,
+          fetchStuckGames: fetchStuckGames,
           _buildCreateGameTx: buildCreateGameTx,
           _buildJoinGameTx: buildJoinGameTx,
           _buildCancelGameTx: buildCancelGameTx,
