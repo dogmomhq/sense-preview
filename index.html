@@ -405,6 +405,7 @@
                     <div class="tier-card" data-tier="3"><div class="tier-amount">$100</div><div class="tier-label">Tier 3</div></div>
                     <div class="tier-card" data-tier="4"><div class="tier-amount">$0.10</div><div class="tier-label">Test</div></div>
                 </div>
+                <button onclick="showScreen('landing')" style="margin-top:8px;padding:12px 32px;background:transparent;border:1px solid var(--border);color:var(--text-secondary);border-radius:8px;cursor:pointer;font-size:14px;">← Back</button>
             </div>
         </div>
 
@@ -1959,6 +1960,9 @@
         const USDC_DECIMALS = 6;
         // Wager amounts in raw USDC micro-units (6 decimals) — avoids BigInt float issues
         const TIER_AMOUNTS_RAW = { 1: 1_000_000, 2: 10_000_000, 3: 100_000_000, 4: 100_000 };
+        // Safe BigInt helper — always rounds to integer first to prevent "0.1 cannot be BigInt" errors
+        function safeBigInt(v) { return BigInt(Math.round(Number(v) || 0)); }
+        function tierToRaw(tier) { return TIER_AMOUNTS_RAW[Number(tier)] || 1_000_000; }
 
         let connection = null;
         let wallet = null;
@@ -2008,7 +2012,7 @@
           const TOKEN_PROGRAM = new solanaWeb3.PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
           const [config] = findPDA(['config']);
           const gameIdBuf = new ArrayBuffer(8);
-          new DataView(gameIdBuf).setBigUint64(0, BigInt(gameId), true);
+          new DataView(gameIdBuf).setBigUint64(0, safeBigInt(gameId), true);
           const gidBytes = new Uint8Array(gameIdBuf);
           const [gameState] = findPDA(['game', gidBytes]);
           const [gameVault] = findPDA(['vault', gidBytes]);
@@ -2017,12 +2021,12 @@
           const configInfo = await conn.getAccountInfo(config);
           const oracleKey = new solanaWeb3.PublicKey(configInfo.data.slice(72, 104));
           const disc = await ixDiscriminator('create_game');
-          const wagerAmount = BigInt(TIER_AMOUNTS_RAW[tier] || 1_000_000);
+          const wagerAmount = safeBigInt(tierToRaw(tier));
           const data = new Uint8Array(24);
           data.set(disc, 0);
           const dv = new DataView(data.buffer);
           dv.setBigUint64(8, wagerAmount, true);
-          dv.setBigUint64(16, BigInt(gameId), true);
+          dv.setBigUint64(16, safeBigInt(gameId), true);
           const ix = new solanaWeb3.TransactionInstruction({
             keys: [
               { pubkey: player, isSigner: true, isWritable: true },
@@ -2050,7 +2054,7 @@
           const programKey = new solanaWeb3.PublicKey(PROGRAM_ID);
           const TOKEN_PROGRAM = new solanaWeb3.PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
           const gameIdBuf = new ArrayBuffer(8);
-          new DataView(gameIdBuf).setBigUint64(0, BigInt(gameId), true);
+          new DataView(gameIdBuf).setBigUint64(0, safeBigInt(gameId), true);
           const gidBytes = new Uint8Array(gameIdBuf);
           const [config] = findPDA(['config']);
           const [gameState] = findPDA(['game', gidBytes]);
@@ -2082,7 +2086,7 @@
           const programKey = new solanaWeb3.PublicKey(PROGRAM_ID);
           const TOKEN_PROGRAM = new solanaWeb3.PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
           const gameIdBuf = new ArrayBuffer(8);
-          new DataView(gameIdBuf).setBigUint64(0, BigInt(gameId), true);
+          new DataView(gameIdBuf).setBigUint64(0, safeBigInt(gameId), true);
           const gidBytes = new Uint8Array(gameIdBuf);
           const [gameState] = findPDA(['game', gidBytes]);
           const [gameVault] = findPDA(['vault', gidBytes]);
@@ -2138,7 +2142,7 @@
           const data = new Uint8Array(9);
           data[0] = 4;
           const dv = new DataView(data.buffer);
-          dv.setBigUint64(1, BigInt(wagerAmount), true);
+          dv.setBigUint64(1, safeBigInt(wagerAmount), true);
           const ix = new solanaWeb3.TransactionInstruction({
             keys: [
               { pubkey: playerATA, isSigner: false, isWritable: true },
@@ -2221,7 +2225,7 @@
             if (!wallet) return { ready: false, error: 'Wallet not connected' };
             try {
               const conn = getConnection();
-              const wagerAmount = BigInt(TIER_AMOUNTS_RAW[tier] || 1_000_000);
+              const wagerAmount = safeBigInt(tierToRaw(tier));
               const playerATA = await getATA(wallet.publicKey.toBase58(), USDC_MINT);
               let usdcBalance = 0;
               try {
@@ -2267,7 +2271,7 @@
             if (!wallet) return { ready: false, error: 'Wallet not connected' };
             try {
               const conn = getConnection();
-              const wagerAmount = BigInt(TIER_AMOUNTS_RAW[tier] || 1_000_000);
+              const wagerAmount = safeBigInt(tierToRaw(tier));
               const playerATA = await getATA(wallet.publicKey.toBase58(), USDC_MINT);
               let usdcBalance = 0;
               try {
