@@ -28,7 +28,7 @@
             height: 100vh;
         }
 
-        #play, #history { overflow-y: auto; align-items: flex-start; }
+        #play, #history, #landing { overflow-y: auto; align-items: flex-start; }
 
         .container {
             width: 100%; height: 100vh;
@@ -70,7 +70,7 @@
         .persistent-balance .bal-amount { font-variant-numeric: tabular-nums; }
 
         /* LANDING */
-        .landing-content { text-align: center; max-width: 500px; }
+        .landing-content { text-align: center; max-width: 500px; padding-bottom: 40px; margin: auto; }
         .game-title { font-size: 48px; font-weight: 700; margin-bottom: 8px; letter-spacing: -0.5px; }
         .game-emoji { font-size: 64px; display: block; margin-bottom: 16px; }
         .game-subtitle { font-size: 18px; color: var(--text-secondary); margin-bottom: 32px; }
@@ -336,6 +336,10 @@
     <div class="persistent-balance" id="persistentBalance">
         <span class="bal-label">USDC</span>
         <span class="bal-amount">$<span id="persistentBalAmt">0.00</span></span>
+        <span id="persistentSolWrap" style="display:none;margin-left:8px;border-left:1px solid var(--border);padding-left:8px;">
+            <span class="bal-label">SOL</span>
+            <span class="bal-amount"><span id="persistentSolAmt">0.000</span></span>
+        </span>
     </div>
 
     <div class="container">
@@ -350,8 +354,12 @@
                     <div class="wallet-disconnected" id="walletDisconnected">Click below to connect your wallet</div>
                     <div class="wallet-connected" id="walletConnected">
                         <div class="wallet-address" id="walletAddress"></div>
-                        <div class="wallet-balance">$<span id="walletBalance">50.00</span></div>
-                        <div class="balance-label">USDC Balance</div>
+                        <div class="wallet-balance">$<span id="walletBalance">50.00</span> <span style="font-size:13px;color:var(--text-secondary);font-weight:400;">USDC</span></div>
+                        <div id="solBalanceRow" style="display:none;margin-top:4px;font-size:16px;font-weight:600;color:var(--text-secondary);">
+                            <span id="walletSolBalance">0.000</span> <span style="font-size:13px;font-weight:400;">SOL</span>
+                            <span id="solWarning" style="display:none;color:var(--lose);font-size:12px;margin-left:6px;">Low!</span>
+                        </div>
+                        <div class="balance-label" style="margin-top:6px;">Wallet Balance</div>
                     </div>
                 </div>
 
@@ -371,8 +379,8 @@
                     </div>
                 </div>
 
-                <div class="history-btn-wrap" id="historyBtnWrap" style="display:none;justify-content:center;margin-top:24px;">
-                    <button class="btn-secondary" id="historyBtn" style="padding:10px 24px;font-size:14px;">Match History <span class="history-badge" id="historyBadge">0</span></button>
+                <div class="history-btn-wrap" id="historyBtnWrap" style="display:none;justify-content:center;margin-top:24px;padding-bottom:8px;">
+                    <button class="btn-secondary" id="historyBtn" style="padding:12px 28px;font-size:15px;border:1px solid var(--border);border-radius:8px;background:var(--bg-secondary);color:var(--text-primary);cursor:pointer;">Match History <span class="history-badge" id="historyBadge" style="background:var(--accent);color:#000;border-radius:12px;padding:2px 8px;font-size:12px;margin-left:6px;">0</span></button>
                 </div>
 
                 <div class="stats-section" id="statsSection">
@@ -570,6 +578,37 @@
         }
     }
 
+    // SOL balance — fetch and display (devnet mode only)
+    async function refreshSolBalance() {
+        if (window.__SENSE_MODE !== 'solana' || !window.PaymentAdapter._getWallet) return;
+        const w = window.PaymentAdapter._getWallet();
+        if (!w) return;
+        try {
+            const conn = window.PaymentAdapter._getConnection();
+            const lamports = await conn.getBalance(w.publicKey);
+            const sol = (lamports / 1e9).toFixed(4);
+            document.getElementById('walletSolBalance').textContent = sol;
+            document.getElementById('solBalanceRow').style.display = 'block';
+            document.getElementById('persistentSolAmt').textContent = sol;
+            document.getElementById('persistentSolWrap').style.display = 'inline';
+            // Warn if low
+            if (lamports < 2_000_000) { // < 0.002 SOL
+                document.getElementById('solWarning').style.display = 'inline';
+                document.getElementById('solWarning').textContent = 'Empty!';
+                document.getElementById('persistentSolAmt').style.color = 'var(--lose)';
+            } else if (lamports < 5_000_000) { // < 0.005 SOL
+                document.getElementById('solWarning').style.display = 'inline';
+                document.getElementById('solWarning').textContent = 'Low!';
+                document.getElementById('persistentSolAmt').style.color = 'var(--draw)';
+            } else {
+                document.getElementById('solWarning').style.display = 'none';
+                document.getElementById('persistentSolAmt').style.color = '';
+            }
+        } catch (e) {
+            console.warn('SOL balance fetch failed:', e.message);
+        }
+    }
+
     function getReasonText(reason) {
         return { correct_answer: 'Correct answer wins', both_wrong: 'Both answered incorrectly', same_speed: 'Both correct, same speed', faster: 'Faster answer wins' }[reason] || reason;
     }
@@ -591,6 +630,7 @@
                     document.getElementById('balanceAfter').style.display = 'block';
                     updatePersistentBalance(bal);
                 }
+                refreshSolBalance(); // SOL may have changed too
             }, 2000);
         } else {
             // Simulated balance
@@ -1593,6 +1633,8 @@
             document.getElementById('modeSection').classList.add('show');
             document.getElementById('historyBtnWrap').style.display = 'flex';
             document.getElementById('connectBtn').dispatchEvent(new Event('walletConnected'));
+            // Fetch SOL balance for devnet mode
+            refreshSolBalance();
 
             // Hydrate match history from server DB (persists across refreshes)
             hydrateHistory(G.playerName);
