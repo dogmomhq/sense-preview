@@ -352,7 +352,7 @@
                     </div>
                 </div>
 
-                <div class="history-btn-wrap" id="historyBtnWrap" style="display:none;justify-content:center;margin-top:24px;">
+                <div class="history-btn-wrap" id="historyBtnWrap" style="display:flex;justify-content:center;margin-top:24px;">
                     <button class="btn-secondary" id="historyBtn" style="padding:10px 24px;font-size:14px;">Match History <span class="history-badge" id="historyBadge">0</span></button>
                 </div>
 
@@ -691,12 +691,15 @@
         const prevScreen = G.screen;
         const cur = document.getElementById(G.screen);
         const next = document.getElementById(name);
-        if (cur) { cur.classList.remove('active'); cur.classList.add('exit'); }
+        if (cur && cur !== next) { cur.classList.remove('active'); cur.classList.add('exit'); }
+        // Clear ALL other screens immediately to prevent stacking
+        document.querySelectorAll('.screen').forEach(s => {
+            if (s.id !== name && s !== cur) { s.classList.remove('active', 'exit'); }
+        });
         setTimeout(() => {
-            if (cur) cur.classList.remove('exit');
+            if (cur && cur !== next) cur.classList.remove('exit');
             next.classList.add('active');
             G.screen = name;
-            // Show any queued notifications when leaving gameplay
             if ((prevScreen === 'play' || prevScreen === 'joining') && name !== 'play' && name !== 'joining') {
                 flushToasts();
             }
@@ -710,11 +713,20 @@
     }
 
     // ---- WebSocket ----
+    var keepaliveInterval = null;
     function connectWS(callback) {
         if (ws && ws.readyState === WebSocket.OPEN) { callback(); return; }
         ws = new WebSocket(SERVER_URL);
-        ws.onopen = () => { console.log('WS connected'); callback(); };
-        ws.onclose = () => { console.log('WS closed'); handleDisconnect(); };
+        ws.onopen = () => {
+            console.log('WS connected');
+            // Client-side keepalive every 20s
+            if (keepaliveInterval) clearInterval(keepaliveInterval);
+            keepaliveInterval = setInterval(() => {
+                if (ws && ws.readyState === WebSocket.OPEN) wsSend({ type: 'keepalive' });
+            }, 20000);
+            callback();
+        };
+        ws.onclose = () => { console.log('WS closed'); if (keepaliveInterval) { clearInterval(keepaliveInterval); keepaliveInterval = null; } handleDisconnect(); };
         ws.onerror = (e) => { console.error('WS error', e); };
         ws.onmessage = (e) => {
             try { handleServerMessage(JSON.parse(e.data)); }
@@ -727,17 +739,48 @@
     }
 
     function handleDisconnect() {
-        // If we're mid-game, show error
-        if (G.screen === 'play' || G.screen === 'waiting' || G.screen === 'joining') {
-            // Try to reconnect once
-            setTimeout(() => {
-                if (!ws || ws.readyState !== WebSocket.OPEN) {
-                    alert('Connection lost. Returning to home.');
-                    clearAllTimers();
+        // Auto-reconnect silently — don't boot the player
+        if (G._reconnecting) return;
+        G._reconnecting = true;
+        var attempts = 0;
+        var maxAttempts = 5;
+        function tryReconnect() {
+            attempts++;
+            console.log('Reconnect attempt', attempts);
+            try {
+                ws = new WebSocket(SERVER_URL);
+                ws.onopen = () => {
+                    console.log('Reconnected');
+                    G._reconnecting = false;
+                    ws.onclose = () => { console.log('WS closed'); handleDisconnect(); };
+                    ws.onerror = (e) => { console.error('WS error', e); };
+                    ws.onmessage = (e) => {
+                        try { handleServerMessage(JSON.parse(e.data)); }
+                        catch(err) { console.error('Bad msg', err); }
+                    };
+                };
+                ws.onclose = () => {
+                    if (attempts < maxAttempts) setTimeout(tryReconnect, 2000 * attempts);
+                    else {
+                        G._reconnecting = false;
+                        if (G.screen === 'play' || G.screen === 'joining') {
+                            clearAllTimers();
+                            showToast('Connection lost — returned home');
+                            showScreen('landing');
+                        }
+                    }
+                };
+                ws.onerror = () => {};
+            } catch(e) {
+                if (attempts < maxAttempts) setTimeout(tryReconnect, 2000 * attempts);
+                else {
+                    G._reconnecting = false;
+                    showToast('Connection lost');
                     showScreen('landing');
                 }
-            }, 3000);
+            }
         }
+        setTimeout(tryReconnect, 1000);
     }
 
     // ---- Server message handler ----
