@@ -1506,17 +1506,42 @@
         }
     }
 
-    // ---- Play Again from pending state ----
-    function pendingPlayAgain() {
-        if (ws && ws.readyState === WebSocket.OPEN) {
-            wsSend({ type: 'queue', name: G.playerName, tier: G.selectedTier });
-            document.getElementById('joinStatus').textContent = 'Finding a match...';
-            document.getElementById('joinStatus').className = 'connection-status waiting';
-            showScreen('joining');
-        } else {
+    // ---- Play Again (shared by result screen + pending state) ----
+    async function replayGame() {
+        if (!ws || ws.readyState !== WebSocket.OPEN) {
             showScreen('landing');
+            return;
         }
+
+        // For Solana mode: need approve + create_game before queuing (1 popup)
+        if (window.PaymentAdapter && window.PaymentAdapter.mode !== 'none') {
+            try {
+                G.onChainGameId = Date.now();
+                const prep = await window.PaymentAdapter.prepareGame(G.selectedTier, G.onChainGameId, 'host');
+                if (!prep.ready) {
+                    showToast(prep.error || 'Failed to prepare game');
+                    return;
+                }
+                G.createTxSig = prep.txSignature || null;
+            } catch (e) {
+                showToast(e.message || 'Game setup failed');
+                return;
+            }
+        }
+
+        wsSend({
+            type: 'queue', name: G.playerName, tier: G.selectedTier,
+            wallet: G.walletAddress || null,
+            paymentMode: (window.PaymentAdapter && window.PaymentAdapter.mode) || 'none',
+            onChainGameId: G.onChainGameId || null,
+        });
+        document.getElementById('joinStatus').textContent = 'Finding a match...';
+        document.getElementById('joinStatus').className = 'connection-status waiting';
+        showScreen('joining');
     }
+
+    // Alias for pending state button
+    function pendingPlayAgain() { replayGame(); }
 
     // ---- Answer selection ----
     function selectAnswer(idx) {
@@ -1876,15 +1901,7 @@
         document.getElementById('historyBtnWrap').style.display = 'flex';
 
         if (G.asyncMode) {
-            // Re-queue for another random match
-            if (ws && ws.readyState === WebSocket.OPEN) {
-                wsSend({ type: 'queue', name: G.playerName, tier: G.selectedTier });
-                document.getElementById('joinStatus').textContent = 'Finding a match...';
-                document.getElementById('joinStatus').className = 'connection-status waiting';
-                showScreen('joining');
-            } else {
-                showScreen('landing');
-            }
+            replayGame();
             return;
         }
 
