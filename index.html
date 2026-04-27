@@ -483,6 +483,7 @@
                         Balance: <span id="newBalance" style="color:var(--accent);font-weight:600;">—</span>
                     </div>
                 </div>
+                <a id="viewSolanaBtn" href="#" target="_blank" style="display:none;text-align:center;color:var(--accent);font-size:13px;text-decoration:none;margin-bottom:16px;opacity:0.7;">View Transaction on Solana ↗</a>
                 <div class="results-buttons">
                     <button class="btn-primary" id="playAgainBtn">Play Again</button>
                     <button class="btn-secondary" id="homeBtn">Home</button>
@@ -576,7 +577,7 @@
     function calculatePayout(result, wager) {
         if (result === 'win') return ((wager * 2) * 0.97).toFixed(2);
         if (result === 'draw') return wager.toFixed(2);
-        return '0.00';
+        return wager.toFixed(2); // loss — show what was lost, not what was received
     }
 
     // Update balance display after match
@@ -696,6 +697,57 @@
         }
     };
 
+    // Fetch match history from server DB and merge into G.matchLog
+    function hydrateHistory(playerName) {
+        var httpUrl = SERVER_URL.replace('wss://', 'https://').replace('ws://', 'http://');
+        fetch(httpUrl + '/history/' + encodeURIComponent(playerName) + '?limit=50')
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (!data.matches || !data.matches.length) return;
+                var existingIds = {};
+                G.matchLog.forEach(function(m) { existingIds[m.matchId] = true; });
+
+                var wagerMap = { 1: 1, 2: 10, 3: 100, 4: 0.10 };
+                data.matches.forEach(function(row) {
+                    if (existingIds[row.match_id]) return; // skip duplicates
+                    var isA = (row.player_a === playerName);
+                    var result = isA ? row.result_a : row.result_b;
+                    var myTime = isA ? row.time_a : row.time_b;
+                    var oppTime = isA ? row.time_b : row.time_a;
+                    var myAnswer = isA ? row.answer_a : row.answer_b;
+                    var oppAnswer = isA ? row.answer_b : row.answer_a;
+                    var opponent = isA ? row.player_b : row.player_a;
+                    var wager = wagerMap[row.tier] || (row.wager_cents / 100);
+                    var payout = calculatePayout(result, wager);
+
+                    G.matchLog.push({
+                        matchId: row.match_id,
+                        opponent: opponent,
+                        result: result,
+                        myAnswer: myAnswer,
+                        oppAnswer: oppAnswer,
+                        myTime: myTime,
+                        oppTime: oppTime,
+                        correctIdx: row.correct_idx,
+                        correctAnswer: '—', // not stored in DB, but not critical for history
+                        reason: row.reason,
+                        wager: wager,
+                        payout: payout,
+                        timestamp: new Date(row.settled_at).getTime(),
+                        txn: row.tx_hash || null,
+                    });
+                });
+
+                // Sort newest first
+                G.matchLog.sort(function(a, b) { return b.timestamp - a.timestamp; });
+                updateHistoryBadge();
+                console.log('[history] Hydrated ' + data.matches.length + ' matches from server');
+            })
+            .catch(function(e) {
+                console.warn('[history] Failed to hydrate:', e.message);
+            });
+    }
+
     function renderHistory() {
         const list = document.getElementById('historyList');
         const stuck = (G.stuckGames || []);
@@ -743,7 +795,7 @@
                     <div class="detail-row"><span class="detail-label">Opponent Time</span><span class="detail-value">${formatTime(m.oppTime)}</span></div>
                     <div class="detail-row"><span class="detail-label">Reason</span><span class="detail-value">${getReasonText(m.reason)}</span></div>
                     <div class="detail-row"><span class="detail-label">Date</span><span class="detail-value">${new Date(m.timestamp).toLocaleString()}</span></div>
-                    <div class="detail-row"><span class="detail-label">On-chain Txn</span><span class="detail-value">${m.txn ? '<a href="https://solscan.io/tx/' + m.txn + '" target="_blank" style="color:var(--accent)">' + m.txn.slice(0,8) + '...</a>' : 'Pending'}</span></div>
+                    ${window.__SENSE_MODE === 'solana' ? '<div class="detail-row"><span class="detail-label">On-chain Txn</span><span class="detail-value">' + (m.txn ? '<a href="https://solscan.io/tx/' + m.txn + '?cluster=devnet" target="_blank" style="color:var(--accent)">' + m.txn.slice(0,8) + '...</a>' : 'Settling...') + '</span></div>' : ''}
                 </div>
             </div>`;
         }).join('');
@@ -929,16 +981,35 @@
                 break;
 
             case 'settle-tx':
-                // Server settled the game on-chain — store tx URL
-                if (msg.txSignature && window.PaymentAdapter.mode === 'solana') {
-                    G.lastSettleTxUrl = 'https://solscan.io/tx/' + msg.txSignature + '?cluster=devnet';
-                    const solBtn = document.getElementById('viewSolanaBtn');
+                // Server settled the game on-chain — store tx URL and update current match log entry
+                if (msg.txSignature) {
+                    var txUrl = 'https://solscan.io/tx/' + msg.txSignature + '?cluster=devnet';
+                    G.lastSettleTxUrl = txUrl;
+                    // Update the most recent matchLog entry with txn hash
+                    if (G.matchLog.length > 0) {
+                        var lastMatch = G.matchLog[G.matchLog.length - 1];
+                        if (msg.gameId && String(lastMatch.matchId).indexOf(msg.gameId) !== -1) {
+                            lastMatch.txn = msg.txSignature;
+                        } else {
+                            // Fallback: tag the most recent entry
+                            lastMatch.txn = msg.txSignature;
+                        }
+                    }
+                    var solBtn = document.getElementById('viewSolanaBtn');
                     if (solBtn) {
-                        solBtn.innerHTML = '🔗 View on Solana';
+                        solBtn.href = txUrl;
+                        solBtn.textContent = 'View Transaction on Solana ↗';
+                        solBtn.style.display = 'block';
                         solBtn.style.opacity = '1';
-                        solBtn.style.cursor = 'pointer';
                     }
                 }
+                break;
+
+            case 'chain-error':
+                // Server rejected on-chain verification — show error and return to landing
+                showToast('Chain verification failed: ' + (msg.error || 'Unknown error'));
+                console.error('[chain-error]', msg);
+                setTimeout(() => showScreen('landing'), 2000);
                 break;
 
             case 'opponent-answered':
@@ -1261,6 +1332,10 @@
                 const bannerText = { win: '🎉 YOU WIN', loss: '😔 YOU LOSE', draw: '🤝 DRAW' }[result];
                 document.getElementById('resultBanner').className = 'result-banner ' + (result === 'loss' ? 'loss' : result);
                 document.getElementById('resultBanner').textContent = bannerText;
+                // Reset tx link — will be shown when settle-tx arrives
+                var solBtn1 = document.getElementById('viewSolanaBtn');
+                if (solBtn1) { solBtn1.style.display = 'none'; solBtn1.href = '#'; }
+                G.lastSettleTxUrl = null;
 
                 const options = Array.from(document.querySelectorAll('.answer-btn')).map(b => b.textContent);
                 let myAnswerText = 'Time expired';
@@ -1461,6 +1536,10 @@
             const bannerText = { win: '🎉 YOU WIN', loss: '😔 YOU LOSE', draw: '🤝 DRAW' }[result];
             document.getElementById('resultBanner').className = 'result-banner ' + (result === 'loss' ? 'loss' : result);
             document.getElementById('resultBanner').textContent = bannerText;
+            // Reset tx link
+            var solBtn2 = document.getElementById('viewSolanaBtn');
+            if (solBtn2) { solBtn2.style.display = 'none'; solBtn2.href = '#'; }
+            G.lastSettleTxUrl = null;
 
             // Build my answer text
             const options = Array.from(document.querySelectorAll('.answer-btn')).map(b => b.textContent);
@@ -1514,6 +1593,9 @@
             document.getElementById('modeSection').classList.add('show');
             document.getElementById('historyBtnWrap').style.display = 'flex';
             document.getElementById('connectBtn').dispatchEvent(new Event('walletConnected'));
+
+            // Hydrate match history from server DB (persists across refreshes)
+            hydrateHistory(G.playerName);
 
             // Fetch stuck on-chain games in background (don't block connect)
             if (window.PaymentAdapter.fetchStuckGames) {
@@ -1717,6 +1799,7 @@
                     document.getElementById('modeSection').classList.add('show');
                     document.getElementById('connectBtn').disabled = true;
                     document.getElementById('historyBtnWrap').style.display = 'flex';
+                    hydrateHistory(G.playerName);
                 } catch (e) {
                     // In none mode this won't fail; in solana mode user needs to approve
                     alert('Connect wallet first to join a game');
@@ -2173,9 +2256,7 @@
         document.getElementById('modeBadge').textContent = 'DEVNET — SOLANA';
         document.getElementById('modeBadge').style.background = 'rgba(0, 212, 170, 0.9)';
 
-        // Show View on Solana button in devnet mode
-        var solBtn = document.getElementById('viewSolanaBtn');
-        if (solBtn) solBtn.style.display = 'inline-block';
+        // viewSolanaBtn visibility is controlled by settle-tx handler — no need to force-show here
       })();
     }
     </script>
