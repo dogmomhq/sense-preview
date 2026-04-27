@@ -28,7 +28,7 @@
             height: 100vh;
         }
 
-        #play { overflow-y: auto; align-items: flex-start; }
+        #play, #history { overflow-y: auto; align-items: flex-start; }
 
         .container {
             width: 100%; height: 100vh;
@@ -243,6 +243,54 @@
         .tooltip .tooltiptext { visibility: hidden; width: 200px; background-color: rgba(0, 0, 0, 0.8); color: #fff; text-align: center; border-radius: 6px; padding: 8px; position: absolute; z-index: 1; bottom: 125%; left: 50%; margin-left: -100px; opacity: 0; transition: opacity 0.3s; font-size: 12px; white-space: nowrap; }
         .tooltip:hover .tooltiptext { visibility: visible; opacity: 1; }
 
+        /* HISTORY */
+        .history-content { width: 100%; max-width: 600px; max-height: 100vh; overflow-y: auto; padding-bottom: 40px; }
+        .history-title { font-size: 28px; font-weight: 700; margin-bottom: 20px; text-align: center; }
+        .history-empty { text-align: center; color: var(--text-secondary); padding: 40px 20px; font-size: 14px; }
+        .history-card {
+            background: var(--bg-secondary); border: 1px solid var(--border);
+            border-radius: 10px; margin-bottom: 10px; overflow: hidden; cursor: pointer;
+            transition: border-color 0.2s;
+        }
+        .history-card:hover { border-color: var(--accent); }
+        .history-card.pending { border-left: 3px solid var(--draw); }
+        .history-summary {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 14px 16px; font-size: 13px;
+        }
+        .history-result { font-weight: 700; font-size: 13px; text-transform: uppercase; min-width: 60px; text-align: right; }
+        .history-result.win { color: var(--win); }
+        .history-result.loss { color: var(--lose); }
+        .history-result.draw { color: var(--draw); }
+        .history-result.pending { color: var(--draw); font-style: italic; }
+        .history-meta { color: var(--text-secondary); font-size: 12px; }
+        .history-opp { color: var(--text-primary); font-weight: 600; }
+        .history-detail {
+            display: none; padding: 0 16px 14px; border-top: 1px solid var(--border);
+            font-size: 13px;
+        }
+        .history-card.open .history-detail { display: block; }
+        .history-detail .detail-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid rgba(42,42,62,0.5); }
+        .history-detail .detail-row:last-child { border-bottom: none; }
+        .history-detail .detail-label { color: var(--text-secondary); }
+        .history-detail .detail-value { font-weight: 600; font-family: 'Courier New', monospace; }
+        .history-btn-wrap { display: flex; gap: 12px; margin-top: 16px; }
+        .history-badge {
+            display: none; background: var(--draw); color: #000; font-size: 11px;
+            font-weight: 700; padding: 2px 7px; border-radius: 10px; margin-left: 6px;
+            vertical-align: middle;
+        }
+
+        /* TOAST */
+        .toast {
+            position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px);
+            background: var(--bg-secondary); border: 1px solid var(--accent); color: var(--text-primary);
+            padding: 12px 24px; border-radius: 8px; font-size: 13px; font-weight: 600;
+            opacity: 0; transition: all 0.3s ease; z-index: 300; pointer-events: none;
+            white-space: nowrap;
+        }
+        .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
         @media (max-width: 600px) {
             .game-title { font-size: 36px; }
             .game-emoji { font-size: 48px; }
@@ -287,6 +335,10 @@
                         <div class="queue-row"><span>Tier 3 Queue ($100):</span><span class="queue-count">0 players</span></div>
                         <div class="queue-row"><span>Tier 4 Queue ($1,000):</span><span class="queue-count">0 players</span></div>
                     </div>
+                </div>
+
+                <div class="history-btn-wrap" id="historyBtnWrap" style="display:none;justify-content:center;margin-top:24px;">
+                    <button class="btn-secondary" id="historyBtn" style="padding:10px 24px;font-size:14px;">Match History <span class="history-badge" id="historyBadge">0</span></button>
                 </div>
 
                 <div class="stats-section" id="statsSection">
@@ -393,13 +445,23 @@
                 </div>
                 <div class="results-buttons">
                     <button class="btn-primary" id="playAgainBtn">Play Again</button>
-                    <button class="btn-secondary" id="viewSolanaBtn">
-                        <span class="tooltip">View on Solana<span class="tooltiptext">Coming soon — devnet deployment pending</span></span>
-                    </button>
+                    <button class="btn-secondary" id="homeBtn">Home</button>
                 </div>
             </div>
         </div>
+
+        <!-- MATCH HISTORY -->
+        <div class="screen" id="history">
+            <div class="history-content">
+                <h2 class="history-title">Match History</h2>
+                <div id="historyList"></div>
+                <button class="btn-secondary" id="historyBackBtn" style="margin-top:24px;width:100%;">Back to Home</button>
+            </div>
+        </div>
     </div>
+
+    <!-- Toast notification -->
+    <div class="toast" id="toast"></div>
 
     <script>
     // ======================================================
@@ -430,6 +492,9 @@
         timerInterval: null,
         elapsedInterval: null,
         countdownTimeout: null,
+        matchLog: [],         // completed matches: { matchId, opponent, result, myAnswer, oppAnswer, myTime, oppTime, correctIdx, correctAnswer, reason, wager, payout, timestamp, txn }
+        pendingMatches: {},   // matchId -> { opponent, wager, tier, timestamp, myAnswer, myTime } — awaiting result
+        pendingTimeout: null, // timer to release player after answering
     };
 
     let ws = null;
@@ -451,6 +516,108 @@
         if (result === 'win') return ((wager * 2) * 0.97).toFixed(2);
         if (result === 'draw') return wager.toFixed(2);
         return '0.00';
+    }
+
+    // ---- Game Log ----
+    function logMatch(matchId, data) {
+        // Remove from pending if it was there
+        delete G.pendingMatches[matchId];
+        // Don't double-log
+        if (G.matchLog.find(m => m.matchId === matchId)) return;
+        G.matchLog.unshift({
+            matchId,
+            opponent: data.opponent,
+            result: data.result,
+            myAnswer: data.myAnswer,
+            oppAnswer: data.oppAnswer,
+            myTime: data.myTime,
+            oppTime: data.oppTime,
+            correctIdx: data.correctIdx,
+            correctAnswer: data.correctAnswer,
+            reason: data.reason,
+            wager: data.wager,
+            payout: data.payout,
+            timestamp: Date.now(),
+            txn: null, // on-chain txn hash — filled by blockchain agent later
+        });
+        updateHistoryBadge();
+        if (G.screen === 'history') renderHistory();
+    }
+
+    function markPending(matchId, data) {
+        G.pendingMatches[matchId] = {
+            opponent: data.opponent || 'Searching...',
+            wager: data.wager,
+            tier: data.tier,
+            timestamp: Date.now(),
+            myAnswer: data.myAnswer,
+            myTime: data.myTime,
+        };
+        updateHistoryBadge();
+    }
+
+    function updateHistoryBadge() {
+        const pending = Object.keys(G.pendingMatches).length;
+        const badge = document.getElementById('historyBadge');
+        if (badge) {
+            badge.textContent = pending;
+            badge.style.display = pending > 0 ? 'inline-block' : 'none';
+        }
+    }
+
+    function showToast(msg) {
+        const t = document.getElementById('toast');
+        t.textContent = msg;
+        t.classList.add('show');
+        setTimeout(() => t.classList.remove('show'), 3000);
+    }
+
+    function renderHistory() {
+        const list = document.getElementById('historyList');
+        const pending = Object.entries(G.pendingMatches);
+        const all = [...pending.map(([mid, m]) => ({ matchId: mid, ...m, isPending: true })), ...G.matchLog];
+
+        if (all.length === 0) {
+            list.innerHTML = '<div class="history-empty">No matches yet. Play a game!</div>';
+            return;
+        }
+
+        list.innerHTML = all.map(m => {
+            if (m.isPending) {
+                const ago = timeAgo(m.timestamp);
+                return `<div class="history-card pending">
+                    <div class="history-summary">
+                        <div><span class="history-opp">vs ${m.opponent}</span><br><span class="history-meta">${ago} · $${m.wager} USDC</span></div>
+                        <div class="history-result pending">Pending...</div>
+                    </div>
+                </div>`;
+            }
+            const ago = timeAgo(m.timestamp);
+            const resultClass = m.result;
+            const resultText = m.result === 'win' ? 'WIN' : m.result === 'loss' ? 'LOSS' : 'DRAW';
+            return `<div class="history-card" onclick="this.classList.toggle('open')">
+                <div class="history-summary">
+                    <div><span class="history-opp">vs ${m.opponent}</span><br><span class="history-meta">${ago} · $${m.wager} USDC</span></div>
+                    <div class="history-result ${resultClass}">${resultText} · $${m.payout}</div>
+                </div>
+                <div class="history-detail">
+                    <div class="detail-row"><span class="detail-label">Correct Answer</span><span class="detail-value" style="color:var(--win)">${m.correctAnswer}</span></div>
+                    <div class="detail-row"><span class="detail-label">Your Time</span><span class="detail-value">${formatTime(m.myTime)}</span></div>
+                    <div class="detail-row"><span class="detail-label">Opponent Time</span><span class="detail-value">${formatTime(m.oppTime)}</span></div>
+                    <div class="detail-row"><span class="detail-label">Reason</span><span class="detail-value">${getReasonText(m.reason)}</span></div>
+                    <div class="detail-row"><span class="detail-label">Date</span><span class="detail-value">${new Date(m.timestamp).toLocaleString()}</span></div>
+                    <div class="detail-row"><span class="detail-label">On-chain Txn</span><span class="detail-value">${m.txn ? '<a href="https://solscan.io/tx/' + m.txn + '" target="_blank" style="color:var(--accent)">' + m.txn.slice(0,8) + '...</a>' : 'Pending'}</span></div>
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    function timeAgo(ts) {
+        const s = Math.floor((Date.now() - ts) / 1000);
+        if (s < 60) return 'Just now';
+        if (s < 3600) return Math.floor(s / 60) + 'm ago';
+        if (s < 86400) return Math.floor(s / 3600) + 'h ago';
+        return Math.floor(s / 86400) + 'd ago';
     }
 
     // ---- Screen transitions ----
@@ -529,7 +696,7 @@
                 break;
 
             case 'async-result':
-                showAsyncResult(msg);
+                handleAsyncResult(msg);
                 break;
 
             case 'async-expired':
@@ -780,29 +947,26 @@
         });
     }
 
-    // ---- ASYNC RESULT ----
-    function showAsyncResult(msg) {
-        clearAllTimers();
+    // ---- ASYNC RESULT (routes to live screen or game log) ----
+    function handleAsyncResult(msg) {
+        const matchId = msg.matchId;
+        const isCurrentMatch = matchId === G.asyncMatchId && (G.screen === 'play' || G.screen === 'results');
 
         const result = msg.you.result;
-        const myAnswer = msg.you.answer;
-        const myTime = msg.you.time;
-        const oppTime = msg.opponent.time;
-        const correctIdx = msg.correctIdx;
-        const correctAnswer = msg.correctAnswer;
-        const reason = msg.reason;
+        const wagerAmounts = [0, 1, 10, 100, 1000];
+        const wager = wagerAmounts[G.selectedTier] || 1;
+        const payout = calculatePayout(result, wager);
 
-        G.opponentName = msg.opponent.name || G.opponentName || 'Opponent';
-
-        // Update opponent name if we didn't have it
-        document.getElementById('playerOpponent').textContent = G.opponentName;
-
-        // Highlight correct/wrong on answer buttons
-        document.querySelectorAll('.answer-btn').forEach((btn, i) => {
-            if (i === correctIdx) btn.classList.add('correct');
-            if (i === myAnswer && i !== correctIdx) btn.classList.add('wrong');
+        // Always log the match
+        logMatch(matchId, {
+            opponent: msg.opponent.name || G.opponentName || 'Opponent',
+            result, myAnswer: msg.you.answer, oppAnswer: msg.opponent.answer,
+            myTime: msg.you.time, oppTime: msg.opponent.time,
+            correctIdx: msg.correctIdx, correctAnswer: msg.correctAnswer,
+            reason: msg.reason, wager, payout,
         });
 
+        // Update stats
         if (result === 'win') G.stats.wins++;
         else if (result === 'loss') G.stats.losses++;
         else G.stats.draws++;
@@ -810,42 +974,58 @@
         document.getElementById('statDraws').textContent = G.stats.draws;
         document.getElementById('statLosses').textContent = G.stats.losses;
 
-        setTimeout(() => {
-            const wagerAmounts = [0, 1, 10, 100, 1000];
-            const wager = wagerAmounts[G.selectedTier] || 1;
-            const payout = calculatePayout(result, wager);
+        if (isCurrentMatch) {
+            // Result arrived while player is still on the play/results screen for THIS match
+            if (G.pendingTimeout) { clearTimeout(G.pendingTimeout); G.pendingTimeout = null; }
+            clearAllTimers();
 
-            const bannerText = { win: '🎉 YOU WIN', loss: '😔 YOU LOSE', draw: '🤝 DRAW' }[result];
-            document.getElementById('resultBanner').className = 'result-banner ' + (result === 'loss' ? 'loss' : result);
-            document.getElementById('resultBanner').textContent = bannerText;
+            G.opponentName = msg.opponent.name || G.opponentName || 'Opponent';
+            document.getElementById('playerOpponent').textContent = G.opponentName;
 
-            const options = Array.from(document.querySelectorAll('.answer-btn')).map(b => b.textContent);
-            let myAnswerText = 'Time expired';
-            if (myAnswer >= 0 && myAnswer < options.length) myAnswerText = options[myAnswer];
-            const myCorrect = myAnswer === correctIdx;
+            // Highlight correct/wrong on answer buttons
+            document.querySelectorAll('.answer-btn').forEach((btn, i) => {
+                if (i === msg.correctIdx) btn.classList.add('correct');
+                if (i === msg.you.answer && i !== msg.correctIdx) btn.classList.add('wrong');
+            });
 
-            document.getElementById('resultDetails').innerHTML = `
-                <div class="detail-row"><span class="detail-label">Your Answer:</span><span class="detail-value" style="color: ${myCorrect ? 'var(--win)' : 'var(--lose)'}">${myAnswerText}</span></div>
-                <div class="detail-row"><span class="detail-label">Correct Answer:</span><span class="detail-value" style="color: var(--win)">${correctAnswer}</span></div>
-                <div class="detail-row"><span class="detail-label">Your Time:</span><span class="detail-value">${formatTime(myTime)}</span></div>
-                <div class="detail-row"><span class="detail-label">Opponent Time:</span><span class="detail-value">${formatTime(oppTime)}</span></div>
-                <div class="detail-row"><span class="detail-label">Result:</span><span class="detail-value">${getReasonText(reason)}</span></div>
-                <div class="detail-row"><span class="detail-label">Wager:</span><span class="detail-value">$${wager} USDC</span></div>
-            `;
+            setTimeout(() => {
+                const bannerText = { win: '🎉 YOU WIN', loss: '😔 YOU LOSE', draw: '🤝 DRAW' }[result];
+                document.getElementById('resultBanner').className = 'result-banner ' + (result === 'loss' ? 'loss' : result);
+                document.getElementById('resultBanner').textContent = bannerText;
 
-            const payoutLabel = result === 'win' ? 'Prize Winnings (3% fee deducted)' : result === 'draw' ? 'Wager Returned' : 'Amount Lost';
-            document.getElementById('payoutLabel').textContent = payoutLabel;
-            document.getElementById('payoutAmount').textContent = '$' + payout;
-            document.getElementById('payoutAmount').style.color = result === 'win' ? 'var(--win)' : result === 'draw' ? 'var(--draw)' : 'var(--lose)';
+                const options = Array.from(document.querySelectorAll('.answer-btn')).map(b => b.textContent);
+                let myAnswerText = 'Time expired';
+                if (msg.you.answer >= 0 && msg.you.answer < options.length) myAnswerText = options[msg.you.answer];
+                const myCorrect = msg.you.answer === msg.correctIdx;
 
-            const paBtn = document.getElementById('playAgainBtn');
-            paBtn.textContent = 'Play Again';
-            paBtn.disabled = false;
-            paBtn.style.animation = '';
-            paBtn.dataset.waiting = '';
+                document.getElementById('resultDetails').innerHTML = `
+                    <div class="detail-row"><span class="detail-label">Your Answer:</span><span class="detail-value" style="color: ${myCorrect ? 'var(--win)' : 'var(--lose)'}">${myAnswerText}</span></div>
+                    <div class="detail-row"><span class="detail-label">Correct Answer:</span><span class="detail-value" style="color: var(--win)">${msg.correctAnswer}</span></div>
+                    <div class="detail-row"><span class="detail-label">Your Time:</span><span class="detail-value">${formatTime(msg.you.time)}</span></div>
+                    <div class="detail-row"><span class="detail-label">Opponent Time:</span><span class="detail-value">${formatTime(msg.opponent.time)}</span></div>
+                    <div class="detail-row"><span class="detail-label">Result:</span><span class="detail-value">${getReasonText(msg.reason)}</span></div>
+                    <div class="detail-row"><span class="detail-label">Wager:</span><span class="detail-value">$${wager} USDC</span></div>
+                `;
 
-            showScreen('results');
-        }, 1200);
+                const payoutLabel = result === 'win' ? 'Prize Winnings (3% fee deducted)' : result === 'draw' ? 'Wager Returned' : 'Amount Lost';
+                document.getElementById('payoutLabel').textContent = payoutLabel;
+                document.getElementById('payoutAmount').textContent = '$' + payout;
+                document.getElementById('payoutAmount').style.color = result === 'win' ? 'var(--win)' : result === 'draw' ? 'var(--draw)' : 'var(--lose)';
+
+                const paBtn = document.getElementById('playAgainBtn');
+                paBtn.textContent = 'Play Again';
+                paBtn.disabled = false;
+                paBtn.style.animation = '';
+                paBtn.dataset.waiting = '';
+
+                showScreen('results');
+            }, 1200);
+        } else {
+            // Result arrived while player is on a DIFFERENT screen (lobby, new game, history)
+            const resultWord = result === 'win' ? 'Won' : result === 'loss' ? 'Lost' : 'Draw';
+            const oppName = msg.opponent.name || 'opponent';
+            showToast(`${resultWord} vs ${oppName} — $${payout}`);
+        }
     }
 
     // ---- Answer selection ----
@@ -875,6 +1055,22 @@
         // Send to server — different message for async vs challenge
         if (G.asyncMode) {
             wsSend({ type: 'async-answer', matchId: G.asyncMatchId, answerIndex: idx, clientTime: Math.round(elapsed) });
+            // Start pending-release timer: if no result in 4s, save as pending and release to lobby
+            if (G.pendingTimeout) clearTimeout(G.pendingTimeout);
+            G.pendingTimeout = setTimeout(() => {
+                if (G.screen === 'play' && G.asyncMode && G.answered) {
+                    const wagerAmounts = [0, 1, 10, 100, 1000];
+                    markPending(G.asyncMatchId, {
+                        opponent: G.opponentName,
+                        wager: wagerAmounts[G.selectedTier] || 1,
+                        tier: G.selectedTier,
+                        myAnswer: idx,
+                        myTime: Math.round(elapsed),
+                    });
+                    showToast('Answer submitted — result pending');
+                    showScreen('landing');
+                }
+            }, 4000);
         } else {
             wsSend({ type: 'answer', answerIndex: idx });
         }
@@ -914,13 +1110,25 @@
         }, 10);
     }
 
-    // ---- Show result (server sent full result) ----
+    // ---- Show result (challenge mode — server sent full result) ----
     function showResult(msg) {
         clearAllTimers();
 
         const result = msg.you.result; // 'win', 'loss', 'draw'
         const myAnswer = msg.you.answer;
         const myTime = msg.you.time; // server authoritative time
+        const wagerAmounts = [0, 1, 10, 100, 1000];
+        const wagerForLog = wagerAmounts[G.selectedTier] || 1;
+        const payoutForLog = calculatePayout(result, wagerForLog);
+
+        // Log challenge mode match too
+        logMatch(G.gameId + '_r' + (msg.round || 1), {
+            opponent: G.opponentName || 'Opponent',
+            result, myAnswer, oppAnswer: msg.opponent.answer,
+            myTime, oppTime: msg.opponent.time,
+            correctIdx: msg.correctIdx, correctAnswer: msg.correctAnswer,
+            reason: msg.reason, wager: wagerForLog, payout: payoutForLog,
+        });
 
         // Snap the play screen display to server's time BEFORE transitioning.
         // This way the last number the player sees = the recap number. No mismatch.
@@ -1002,6 +1210,7 @@
         document.getElementById('walletAddress').textContent = G.playerName;
         document.getElementById('modeSection').classList.add('show');
         document.getElementById('connectBtn').disabled = true;
+        document.getElementById('historyBtnWrap').style.display = 'flex';
     });
 
     // Mode selection
@@ -1061,6 +1270,7 @@
     // Play Again (rematch)
     document.getElementById('playAgainBtn').addEventListener('click', () => {
         document.getElementById('statsSection').classList.add('show');
+        document.getElementById('historyBtnWrap').style.display = 'flex';
 
         if (G.asyncMode) {
             // Re-queue for another random match
@@ -1088,7 +1298,21 @@
         showScreen('landing');
     });
 
-    document.getElementById('viewSolanaBtn').addEventListener('click', () => {});
+    // Home button on results screen
+    document.getElementById('homeBtn').addEventListener('click', () => {
+        showScreen('landing');
+    });
+
+    // History button on landing
+    document.getElementById('historyBtn').addEventListener('click', () => {
+        renderHistory();
+        showScreen('history');
+    });
+
+    // History back button
+    document.getElementById('historyBackBtn').addEventListener('click', () => {
+        showScreen('landing');
+    });
 
     // ---- Auto-join from URL hash ----
     function checkForGameInURL() {
@@ -1102,6 +1326,7 @@
                 document.getElementById('walletAddress').textContent = G.playerName;
                 document.getElementById('modeSection').classList.add('show');
                 document.getElementById('connectBtn').disabled = true;
+                document.getElementById('historyBtnWrap').style.display = 'flex';
             }
             G.isHost = false;
             G.selectedMode = 'friend';
