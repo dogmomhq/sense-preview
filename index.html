@@ -484,8 +484,12 @@
     // Client only: connects, renders, sends answer index.
     // ======================================================
 
-    // ---- SERVER URL (change after Railway deploy) ----
-    const SERVER_URL = 'wss://web-production-8866e.up.railway.app';
+    // ---- SERVER URLs — isolated by mode ----
+    // Preview players connect to preview server. Devnet players connect to devnet server.
+    // Two separate Railway instances. Zero shared state. No cross-contamination possible.
+    const PREVIEW_SERVER = 'wss://web-production-c6ec6.up.railway.app';
+    const DEVNET_SERVER  = 'wss://web-production-8866e.up.railway.app';
+    const SERVER_URL = (window.__SENSE_MODE === 'solana') ? DEVNET_SERVER : PREVIEW_SERVER;
 
     const TIME_LIMIT_MS = 10000;
     const CIRCUMFERENCE = 2 * Math.PI * 54;
