@@ -303,7 +303,7 @@
     <!-- Mode detection + Solana Web3 (only loads in devnet mode) -->
     <script>
     (function() {
-      var h = window.location.hostname || '';
+      var h = window.location.href || '';
       var PAYMENT_MODE = (h.indexOf('sense-devnet') !== -1) ? 'solana' : 'none';
       window.__SENSE_MODE = PAYMENT_MODE;
       if (PAYMENT_MODE === 'solana') {
