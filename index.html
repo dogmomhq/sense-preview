@@ -512,6 +512,32 @@
                 wsSend({ type: 'pong', nonce: msg.nonce });
                 return;
 
+            // ---- ASYNC RANDOM MATCH MESSAGES ----
+            case 'async-question':
+                startAsyncRound(msg);
+                break;
+
+            case 'async-opponent-found':
+                G.opponentName = msg.opponentName;
+                break;
+
+            case 'async-waiting':
+                // Still waiting for opponent — show status
+                if (G.screen === 'results' || G.screen === 'play') {
+                    // Already showing waiting message from answer submission
+                }
+                break;
+
+            case 'async-result':
+                showAsyncResult(msg);
+                break;
+
+            case 'async-expired':
+                alert('No opponent found. Try again!');
+                showScreen('landing');
+                break;
+
+            // ---- CHALLENGE MODE MESSAGES ----
             case 'created':
                 // Host got game ID back
                 G.gameId = msg.gameId;
@@ -688,6 +714,140 @@
         startTimers();
     }
 
+    // ---- ASYNC ROUND: play locally, timer on device ----
+    function startAsyncRound(msg) {
+        clearAllTimers();
+        document.getElementById('countdownOverlay').classList.remove('active');
+
+        G.answered = false;
+        G.questionStartTime = null;
+        G.frozenElapsed = null;
+        G.asyncMatchId = msg.matchId;
+        G.asyncMode = true;
+
+        const q = msg.question;
+
+        document.getElementById('playerYou').textContent = G.playerName;
+        document.getElementById('playerOpponent').textContent = G.opponentName || 'Searching...';
+        document.getElementById('roundIndicator').style.display = 'none';
+
+        // Reset play UI
+        document.getElementById('timerText').textContent = '10.00';
+        document.getElementById('timerCircle').style.strokeDashoffset = '0';
+        document.getElementById('timerText').style.color = 'var(--accent)';
+        document.getElementById('timerCircle').style.stroke = 'var(--accent)';
+        document.getElementById('elapsedTimer').textContent = '0.00s';
+        document.getElementById('questionText').textContent = '';
+        document.getElementById('imagePlaceholder').innerHTML = '';
+        document.getElementById('answersGrid').innerHTML = '';
+        document.getElementById('waitingMessage').classList.remove('show');
+        document.getElementById('waitingMessage').innerHTML = '<span class="spinner"></span>Waiting for opponent...';
+
+        showScreen('play');
+
+        // Preload image
+        let preloadedImg = null;
+        if (q.imageToken) {
+            preloadedImg = new Image();
+            preloadedImg.src = SERVER_URL.replace('wss://', 'https://').replace('ws://', 'http://') + '/img/' + q.imageToken;
+        }
+
+        // Short countdown then reveal — no server sync needed, this is LOCAL
+        runCountdown(() => {
+            document.getElementById('questionText').textContent = q.text;
+            const imgC = document.getElementById('imagePlaceholder');
+            imgC.innerHTML = '';
+            if (preloadedImg) {
+                preloadedImg.alt = 'Identify this';
+                preloadedImg.draggable = false;
+                preloadedImg.oncontextmenu = e => e.preventDefault();
+                preloadedImg.onerror = () => {
+                    imgC.innerHTML = '<div style="padding:40px 20px;color:var(--text-secondary);font-size:14px;">Image loading — answer from the options!</div>';
+                };
+                imgC.appendChild(preloadedImg);
+            }
+            const grid = document.getElementById('answersGrid');
+            grid.innerHTML = q.options.map((opt, i) =>
+                `<button class="answer-btn" data-index="${i}">${opt}</button>`
+            ).join('');
+            document.querySelectorAll('.answer-btn').forEach(btn => {
+                btn.addEventListener('click', () => selectAnswer(parseInt(btn.dataset.index)));
+            });
+
+            // Start LOCAL timer — THIS is the authoritative time for async mode
+            G.questionStartTime = Date.now();
+            startTimers();
+        });
+    }
+
+    // ---- ASYNC RESULT ----
+    function showAsyncResult(msg) {
+        clearAllTimers();
+
+        const result = msg.you.result;
+        const myAnswer = msg.you.answer;
+        const myTime = msg.you.time;
+        const oppTime = msg.opponent.time;
+        const correctIdx = msg.correctIdx;
+        const correctAnswer = msg.correctAnswer;
+        const reason = msg.reason;
+
+        G.opponentName = msg.opponent.name || G.opponentName || 'Opponent';
+
+        // Update opponent name if we didn't have it
+        document.getElementById('playerOpponent').textContent = G.opponentName;
+
+        // Highlight correct/wrong on answer buttons
+        document.querySelectorAll('.answer-btn').forEach((btn, i) => {
+            if (i === correctIdx) btn.classList.add('correct');
+            if (i === myAnswer && i !== correctIdx) btn.classList.add('wrong');
+        });
+
+        if (result === 'win') G.stats.wins++;
+        else if (result === 'loss') G.stats.losses++;
+        else G.stats.draws++;
+        document.getElementById('statWins').textContent = G.stats.wins;
+        document.getElementById('statDraws').textContent = G.stats.draws;
+        document.getElementById('statLosses').textContent = G.stats.losses;
+
+        setTimeout(() => {
+            const wagerAmounts = [0, 1, 10, 100, 1000];
+            const wager = wagerAmounts[G.selectedTier] || 1;
+            const payout = calculatePayout(result, wager);
+
+            const bannerText = { win: '🎉 YOU WIN', loss: '😔 YOU LOSE', draw: '🤝 DRAW' }[result];
+            document.getElementById('resultBanner').className = 'result-banner ' + (result === 'loss' ? 'loss' : result);
+            document.getElementById('resultBanner').textContent = bannerText;
+
+            const options = Array.from(document.querySelectorAll('.answer-btn')).map(b => b.textContent);
+            let myAnswerText = 'Time expired';
+            if (myAnswer >= 0 && myAnswer < options.length) myAnswerText = options[myAnswer];
+            const myCorrect = myAnswer === correctIdx;
+
+            document.getElementById('resultDetails').innerHTML = `
+                <div class="detail-row"><span class="detail-label">Your Answer:</span><span class="detail-value" style="color: ${myCorrect ? 'var(--win)' : 'var(--lose)'}">${myAnswerText}</span></div>
+                <div class="detail-row"><span class="detail-label">Correct Answer:</span><span class="detail-value" style="color: var(--win)">${correctAnswer}</span></div>
+                <div class="detail-row"><span class="detail-label">Your Time:</span><span class="detail-value">${formatTime(myTime)}</span></div>
+                <div class="detail-row"><span class="detail-label">Opponent Time:</span><span class="detail-value">${formatTime(oppTime)}</span></div>
+                <div class="detail-row"><span class="detail-label">Result:</span><span class="detail-value">${getReasonText(reason)}</span></div>
+                <div class="detail-row"><span class="detail-label">Wager:</span><span class="detail-value">$${wager} USDC</span></div>
+            `;
+
+            const payoutLabel = result === 'win' ? 'Prize Winnings (3% fee deducted)' : result === 'draw' ? 'Wager Returned' : 'Amount Lost';
+            document.getElementById('payoutLabel').textContent = payoutLabel;
+            document.getElementById('payoutAmount').textContent = '$' + payout;
+            document.getElementById('payoutAmount').style.color = result === 'win' ? 'var(--win)' : result === 'draw' ? 'var(--draw)' : 'var(--lose)';
+
+            const paBtn = document.getElementById('playAgainBtn');
+            paBtn.textContent = 'Play Again';
+            paBtn.disabled = false;
+            paBtn.style.animation = '';
+            paBtn.dataset.waiting = '';
+
+            showScreen('results');
+        }, 1200);
+    }
+
     // ---- Answer selection ----
     function selectAnswer(idx) {
         if (G.answered || !G.questionStartTime) return;
@@ -712,8 +872,12 @@
         });
         document.getElementById('waitingMessage').classList.add('show');
 
-        // Send to server
-        wsSend({ type: 'answer', answerIndex: idx });
+        // Send to server — different message for async vs challenge
+        if (G.asyncMode) {
+            wsSend({ type: 'async-answer', matchId: G.asyncMatchId, answerIndex: idx, clientTime: Math.round(elapsed) });
+        } else {
+            wsSend({ type: 'answer', answerIndex: idx });
+        }
     }
 
     // ---- Visual timer (client-side, non-authoritative) ----
@@ -848,7 +1012,7 @@
         });
     });
 
-    // Tier selection → create game
+    // Tier selection → create game (challenge) or queue (random)
     document.querySelectorAll('.tier-card').forEach(card => {
         card.addEventListener('click', (e) => {
             const target = e.target.closest('.tier-card');
@@ -856,12 +1020,26 @@
             document.querySelectorAll('.tier-card').forEach(c => c.classList.remove('selected'));
             target.classList.add('selected');
             G.selectedTier = parseInt(target.dataset.tier);
-            G.isHost = true;
 
-            // Connect to server and create room
-            connectWS(() => {
-                wsSend({ type: 'create', name: G.playerName, tier: G.selectedTier });
-            });
+            if (G.selectedMode === 'random') {
+                // Async random match
+                G.isHost = false;
+                G.asyncMode = true;
+                connectWS(() => {
+                    wsSend({ type: 'queue', name: G.playerName, tier: G.selectedTier });
+                });
+                // Show joining screen while we wait for question
+                document.getElementById('joinStatus').textContent = 'Finding a match...';
+                document.getElementById('joinStatus').className = 'connection-status waiting';
+                showScreen('joining');
+            } else {
+                // Challenge mode — create room, get link
+                G.isHost = true;
+                G.asyncMode = false;
+                connectWS(() => {
+                    wsSend({ type: 'create', name: G.playerName, tier: G.selectedTier });
+                });
+            }
         });
     });
 
@@ -884,18 +1062,29 @@
     document.getElementById('playAgainBtn').addEventListener('click', () => {
         document.getElementById('statsSection').classList.add('show');
 
+        if (G.asyncMode) {
+            // Re-queue for another random match
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                wsSend({ type: 'queue', name: G.playerName, tier: G.selectedTier });
+                document.getElementById('joinStatus').textContent = 'Finding a match...';
+                document.getElementById('joinStatus').className = 'connection-status waiting';
+                showScreen('joining');
+            } else {
+                showScreen('landing');
+            }
+            return;
+        }
+
+        // Challenge mode — rematch
         if (ws && ws.readyState === WebSocket.OPEN) {
             wsSend({ type: 'rematch' });
             const btn = document.getElementById('playAgainBtn');
             btn.textContent = 'Waiting for opponent...';
             btn.disabled = true;
             btn.dataset.waiting = 'true';
-
-            // If opponent already requested, server will auto-start next round
             return;
         }
 
-        // No connection — go home
         showScreen('landing');
     });
 
