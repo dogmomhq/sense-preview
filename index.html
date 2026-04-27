@@ -176,27 +176,31 @@
         @keyframes countPulse { 0% { transform: scale(1.8); opacity: 0; } 50% { transform: scale(1); opacity: 1; } 100% { transform: scale(0.95); opacity: 1; } }
 
         /* PLAY */
-        .play-content { width: 100%; max-width: 700px; padding-bottom: 20px; }
-        .players-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
-        .player-card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px; padding: 8px; text-align: center; }
+        .play-content { width: 100%; max-width: 700px; padding-bottom: 16px; }
+        .players-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+        .player-card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px; padding: 6px 8px; text-align: center; }
         .player-card.you { border-color: var(--accent); }
-        .player-label { font-size: 11px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
-        .player-name { font-size: 13px; font-family: 'Courier New', monospace; color: var(--text-primary); word-break: break-all; }
+        .player-label { font-size: 10px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px; }
+        .player-name { font-size: 12px; font-family: 'Courier New', monospace; color: var(--text-primary); word-break: break-all; }
 
-        .timer-section { display: flex; flex-direction: column; align-items: center; margin-bottom: 12px; }
-        .timer-ring { position: relative; width: 100px; height: 100px; margin-bottom: 4px; }
+        .timer-section { display: flex; flex-direction: column; align-items: center; margin-bottom: 10px; }
+        .timer-ring { position: relative; width: 90px; height: 90px; margin-bottom: 6px; }
         .timer-svg { width: 100%; height: 100%; transform: rotate(-90deg); }
         .timer-circle-bg { fill: none; stroke: var(--border); stroke-width: 4; }
         .timer-circle { fill: none; stroke: var(--accent); stroke-width: 4; stroke-dasharray: 339.29; stroke-dashoffset: 0; stroke-linecap: round; }
-        .timer-text { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 24px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
-        .elapsed-timer { font-size: 14px; color: var(--text-secondary); font-variant-numeric: tabular-nums; font-family: 'Courier New', monospace; margin-top: 4px; }
+        .timer-text { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 22px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+        .times-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; max-width: 320px; }
+        .time-block { text-align: center; }
+        .time-label { font-size: 10px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 2px; }
+        .time-value { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; font-family: 'Courier New', monospace; color: var(--text-primary); }
+        .time-value.accent { color: var(--accent); }
 
-        .question-card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 12px; text-align: center; }
-        .question-text { font-size: 18px; font-weight: 600; line-height: 1.5; }
+        .question-card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 10px; padding: 14px; margin-bottom: 10px; text-align: center; }
+        .question-text { font-size: 17px; font-weight: 600; line-height: 1.4; }
         .image-placeholder { border-radius: 8px; margin: 8px 0 0 0; text-align: center; min-height: 0; }
         .image-placeholder img { max-width: 100%; max-height: min(200px, 25vh); border-radius: 8px; object-fit: contain; background: rgba(0, 212, 170, 0.05); border: 1px solid var(--border); }
 
-        .answers-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+        .answers-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
         .answer-btn {
             background: var(--bg-secondary); border: 2px solid var(--border);
             color: var(--text-primary); padding: 14px 12px; border-radius: 8px;
@@ -421,7 +425,7 @@
         <!-- PLAY -->
         <div class="screen" id="play">
             <div class="play-content">
-                <div id="roundIndicator" style="display:none; text-align:center; font-size:14px; color:var(--accent); margin-bottom:8px; font-weight:600; letter-spacing:1px; text-transform:uppercase;">Round 1</div>
+                <div id="roundIndicator" style="display:none; text-align:center; font-size:12px; color:var(--accent); margin-bottom:6px; font-weight:600; letter-spacing:1.5px; text-transform:uppercase;">Round 1</div>
                 <div class="players-row">
                     <div class="player-card you"><div class="player-label">You</div><div class="player-name" id="playerYou"></div></div>
                     <div class="player-card"><div class="player-label">Opponent</div><div class="player-name" id="playerOpponent"></div></div>
@@ -434,7 +438,10 @@
                         </svg>
                         <div class="timer-text" id="timerText">10.00</div>
                     </div>
-                    <div class="elapsed-timer" id="elapsedTimer">0.00s</div>
+                    <div class="times-row">
+                        <div class="time-block"><div class="time-label">Your Time</div><div class="time-value accent" id="yourTime">0.00s</div></div>
+                        <div class="time-block"><div class="time-label">Their Time</div><div class="time-value" id="theirTime">—</div></div>
+                    </div>
                 </div>
                 <div class="question-card">
                     <div class="question-text" id="questionText"></div>
@@ -896,7 +903,8 @@
         document.getElementById('timerCircle').style.strokeDashoffset = '0';
         document.getElementById('timerText').style.color = 'var(--accent)';
         document.getElementById('timerCircle').style.stroke = 'var(--accent)';
-        document.getElementById('elapsedTimer').textContent = '0.00s';
+        document.getElementById('yourTime').textContent = '0.00s';
+        document.getElementById('theirTime').textContent = '—';
         document.getElementById('questionText').textContent = '';
         document.getElementById('imagePlaceholder').innerHTML = '';
         document.getElementById('answersGrid').innerHTML = '';
@@ -980,7 +988,8 @@
         document.getElementById('timerCircle').style.strokeDashoffset = '0';
         document.getElementById('timerText').style.color = 'var(--accent)';
         document.getElementById('timerCircle').style.stroke = 'var(--accent)';
-        document.getElementById('elapsedTimer').textContent = '0.00s';
+        document.getElementById('yourTime').textContent = '0.00s';
+        document.getElementById('theirTime').textContent = '—';
         document.getElementById('questionText').textContent = '';
         document.getElementById('imagePlaceholder').innerHTML = '';
         document.getElementById('answersGrid').innerHTML = '';
@@ -1058,6 +1067,7 @@
 
             G.opponentName = msg.opponent.name || G.opponentName || 'Opponent';
             document.getElementById('playerOpponent').textContent = G.opponentName;
+            if (msg.opponent.time != null) document.getElementById('theirTime').textContent = formatTime(msg.opponent.time);
 
             // Highlight correct/wrong on answer buttons
             document.querySelectorAll('.answer-btn').forEach((btn, i) => {
@@ -1129,7 +1139,7 @@
         // Freeze elapsed time INSTANTLY — no waiting for interval tick
         const elapsed = Date.now() - G.questionStartTime;
         G.frozenElapsed = elapsed;
-        document.getElementById('elapsedTimer').textContent = formatTime(elapsed);
+        document.getElementById('yourTime').textContent = formatTime(elapsed);
         if (G.elapsedInterval) { clearInterval(G.elapsedInterval); G.elapsedInterval = null; }
         // Also freeze the countdown ring at current position
         if (G.timerInterval) { clearInterval(G.timerInterval); G.timerInterval = null; }
@@ -1197,7 +1207,7 @@
                 clearInterval(G.timerInterval); G.timerInterval = null;
                 if (!G.answered) {
                     G.answered = true;
-                    document.getElementById('elapsedTimer').textContent = formatTime(TIME_LIMIT_MS);
+                    document.getElementById('yourTime').textContent = formatTime(TIME_LIMIT_MS);
                     document.querySelectorAll('.answer-btn').forEach(btn => { btn.disabled = true; });
                     document.getElementById('waitingMessage').classList.add('show');
                     // Server auto-submits for us, no need to send anything
@@ -1207,7 +1217,7 @@
 
         G.elapsedInterval = setInterval(() => {
             if (G.answered) return;
-            document.getElementById('elapsedTimer').textContent = formatTime(Date.now() - G.questionStartTime);
+            document.getElementById('yourTime').textContent = formatTime(Date.now() - G.questionStartTime);
         }, 10);
     }
 
@@ -1234,12 +1244,13 @@
         // Snap the play screen display to server's time BEFORE transitioning.
         // This way the last number the player sees = the recap number. No mismatch.
         if (myTime != null && myAnswer >= 0) {
-            document.getElementById('elapsedTimer').textContent = formatTime(myTime);
+            document.getElementById('yourTime').textContent = formatTime(myTime);
             const remaining = Math.max(0, TIME_LIMIT_MS - myTime);
             document.getElementById('timerText').textContent = (remaining / 1000).toFixed(2);
             document.getElementById('timerCircle').style.strokeDashoffset = CIRCUMFERENCE * (1 - remaining / TIME_LIMIT_MS);
         }
         const oppTime = msg.opponent.time;
+        if (oppTime != null) document.getElementById('theirTime').textContent = formatTime(oppTime);
         const correctIdx = msg.correctIdx;
         const correctAnswer = msg.correctAnswer;
         const reason = msg.reason;
