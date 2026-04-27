@@ -1652,7 +1652,8 @@
         const USDC_MINT = '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU';
         const RPC_URL = 'https://api.devnet.solana.com';
         const USDC_DECIMALS = 6;
-        const TIER_AMOUNTS = { 1: 1, 2: 10, 3: 100, 4: 0.10 };
+        // Wager amounts in raw USDC micro-units (6 decimals) — avoids BigInt float issues
+        const TIER_AMOUNTS_RAW = { 1: 1_000_000, 2: 10_000_000, 3: 100_000_000, 4: 100_000 };
 
         let connection = null;
         let wallet = null;
@@ -1711,7 +1712,7 @@
           const configInfo = await conn.getAccountInfo(config);
           const oracleKey = new solanaWeb3.PublicKey(configInfo.data.slice(72, 104));
           const disc = await ixDiscriminator('create_game');
-          const wagerAmount = BigInt(TIER_AMOUNTS[tier] || 1) * BigInt(10 ** USDC_DECIMALS);
+          const wagerAmount = BigInt(TIER_AMOUNTS_RAW[tier] || 1_000_000);
           const data = new Uint8Array(24);
           data.set(disc, 0);
           const dv = new DataView(data.buffer);
@@ -1885,7 +1886,7 @@
             if (!wallet) return { ready: false, error: 'Wallet not connected' };
             try {
               const conn = getConnection();
-              const wagerAmount = BigInt(TIER_AMOUNTS[tier] || 1) * BigInt(10 ** USDC_DECIMALS);
+              const wagerAmount = BigInt(TIER_AMOUNTS_RAW[tier] || 1_000_000);
               const playerATA = await getATA(wallet.publicKey.toBase58(), USDC_MINT);
               let usdcBalance = 0;
               try {
