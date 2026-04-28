@@ -954,6 +954,20 @@
         return wager.toFixed(2);
     }
 
+    // Refresh all on-chain balances (USDC, SOL, approval count) — call after any chain event
+    function refreshAllBalances(delayMs) {
+        if (window.__SENSE_MODE !== 'solana') return;
+        setTimeout(function() {
+            if (window.PaymentAdapter && window.PaymentAdapter._refreshBalance) {
+                window.PaymentAdapter._refreshBalance().then(function(bal) {
+                    if (bal !== null) updatePersistentBalance(bal);
+                }).catch(function(){});
+            }
+            refreshSolBalance();
+            updateApprovalDisplay();
+        }, delayMs || 1500);
+    }
+
     async function updateBalanceAfterMatch(result, wager) {
         if (window.__SENSE_MODE === 'solana' && window.PaymentAdapter._refreshBalance) {
             setTimeout(async () => {
@@ -964,6 +978,7 @@
                     updatePersistentBalance(bal);
                 }
                 refreshSolBalance();
+                updateApprovalDisplay();
             }, 2000);
         } else {
             if (result === 'win') G.simulatedBalance += parseFloat(((wager * 2) * 0.97).toFixed(2)) - wager;
@@ -1069,7 +1084,7 @@
                 updateHistoryBadge();
                 renderHistory();
                 showToast('Game cancelled — USDC refunded!');
-                if (window.PaymentAdapter._refreshBalance) window.PaymentAdapter._refreshBalance();
+                refreshAllBalances(1500);
             } else {
                 showToast(result.error || 'Cancel failed');
                 if (btn) { btn.disabled = false; btn.textContent = 'Cancel & Refund'; }
@@ -1087,6 +1102,7 @@
         updateHistoryBadge();
         renderHistory();
         showToast('Match cancelled');
+        refreshAllBalances(2000);
     };
 
     function hydrateHistory(playerName) {
@@ -1562,12 +1578,14 @@
                 console.log('[chain] Game created on-chain:', msg.gameId, msg.txSignature);
                 document.getElementById('joinStatus').textContent = 'Game created! Waiting for question...';
                 document.getElementById('joinStatus').className = 'connection-status connected';
+                refreshAllBalances(2000);
                 break;
             case 'chain-joining':
                 document.getElementById('joinStatus').textContent = msg.message || 'Joining on-chain game...';
                 break;
             case 'chain-joined':
                 console.log('[chain] Joined on-chain game:', msg.gameId, msg.txSignature);
+                refreshAllBalances(2000);
                 break;
             case 'chain-error':
                 console.error('[chain] Error:', msg.error);
@@ -1576,6 +1594,7 @@
                 break;
             case 'chain-complete':
                 console.log('[chain] Chain complete for', msg.matchId);
+                refreshAllBalances(2000);
                 break;
             case 'async-waiting':
                 break;
@@ -1588,6 +1607,7 @@
                     G.matchLog = G.matchLog.filter(function(m) { return m.matchId !== msg.matchId; });
                     updateHistoryBadge();
                     renderHistory();
+                    refreshAllBalances(2000);
                 }
                 break;
             case 'async-expired':
@@ -1596,6 +1616,7 @@
                     G.matchLog = G.matchLog.filter(function(m) { return m.matchId !== msg.matchId; });
                     updateHistoryBadge();
                     renderHistory();
+                    refreshAllBalances(2000);
                 }
                 break;
             case 'question':
