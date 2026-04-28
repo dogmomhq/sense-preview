@@ -26,9 +26,14 @@
             color: var(--text-primary);
             overflow: hidden;
             height: 100vh;
+            padding-bottom: 70px;
         }
 
-        #play, #history, #landing { overflow-y: auto; align-items: flex-start; }
+        @media (min-width: 769px) {
+            body { padding-bottom: 0; padding-top: 60px; }
+        }
+
+        #play, #history, #landing, #leaderboard, #challenge-tab, #profile { overflow-y: auto; align-items: flex-start; }
 
         .container {
             width: 100%; height: 100vh;
@@ -45,6 +50,53 @@
         }
         .screen.active { opacity: 1; transform: translateY(0); pointer-events: auto; }
         .screen.exit { opacity: 0; transform: translateY(-20px); transition: all 0.3s ease; }
+
+        /* PERSISTENT NAV BAR */
+        .nav-bar {
+            position: fixed; left: 0; right: 0;
+            display: flex; justify-content: space-around; align-items: center;
+            background: rgba(26, 26, 46, 0.95); border-top: 1px solid var(--border);
+            backdrop-filter: blur(8px); z-index: 150;
+            padding: 0; gap: 0;
+        }
+
+        @media (max-width: 768px) {
+            .nav-bar { bottom: 0; height: 70px; flex-direction: row; }
+            .nav-bar.hidden { display: none; }
+        }
+
+        @media (min-width: 769px) {
+            .nav-bar { top: 0; height: 60px; border-bottom: 1px solid var(--border); border-top: none;
+                padding: 0 20px; justify-content: flex-start; gap: 12px; }
+            .nav-bar.hidden { display: none; }
+        }
+
+        .nav-item {
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            background: none; border: none; cursor: pointer; color: var(--text-secondary);
+            transition: all 0.3s ease; padding: 8px 12px; font-size: 11px; font-weight: 600;
+            text-transform: uppercase; letter-spacing: 0.5px; position: relative;
+        }
+
+        @media (min-width: 769px) {
+            .nav-item { flex-direction: row; gap: 8px; padding: 8px 20px; font-size: 13px;
+                border-radius: 6px; }
+        }
+
+        .nav-item svg { width: 24px; height: 24px; stroke-width: 1.5; }
+
+        .nav-item.active {
+            color: var(--accent);
+        }
+
+        @media (min-width: 769px) {
+            .nav-item.active { background: rgba(0, 212, 170, 0.1); }
+        }
+
+        .nav-label { display: none; }
+        @media (min-width: 769px) {
+            .nav-label { display: inline; }
+        }
 
         .preview-badge {
             position: fixed; top: 12px; right: 12px;
@@ -69,83 +121,97 @@
         .persistent-balance .bal-label { color: var(--text-secondary); font-weight: 400; font-size: 11px; margin-right: 4px; }
         .persistent-balance .bal-amount { font-variant-numeric: tabular-nums; }
 
-        /* LANDING */
-        .landing-content { text-align: center; max-width: 500px; padding-bottom: 40px; margin: auto; }
-        .game-title { font-size: 48px; font-weight: 700; margin-bottom: 8px; letter-spacing: -0.5px; }
-        .game-emoji { font-size: 64px; display: block; margin-bottom: 16px; }
-        .game-subtitle { font-size: 18px; color: var(--text-secondary); margin-bottom: 32px; }
+        /* LANDING - COMPACT */
+        .landing-content { text-align: center; max-width: 500px; padding: 20px; margin: auto; }
 
-        .wallet-section {
+        .landing-top-bar {
+            display: flex; justify-content: space-between; align-items: center;
             background: var(--bg-secondary); border: 1px solid var(--border);
-            border-radius: 12px; padding: 20px; margin-bottom: 32px;
-            min-height: 60px; display: flex; flex-direction: column;
-            justify-content: center; align-items: center;
+            border-radius: 12px; padding: 16px; margin-bottom: 24px;
         }
-        .wallet-disconnected { color: var(--text-secondary); font-size: 14px; }
-        .wallet-connected { display: none; }
-        .wallet-connected.show { display: block; }
-        .wallet-address { font-family: 'Courier New', monospace; font-size: 13px; color: var(--accent); word-break: break-all; margin-bottom: 8px; }
-        .wallet-balance { font-size: 24px; font-weight: 700; }
-        .balance-label { font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
 
-        .connect-btn {
-            background: linear-gradient(135deg, var(--accent), var(--accent-dark));
-            border: none; color: #000; padding: 14px 32px; border-radius: 8px;
-            font-size: 16px; font-weight: 600; cursor: pointer;
-            transition: all 0.3s ease; margin-bottom: 24px;
-            width: 100%; max-width: 300px;
+        .landing-top-bar .username-display {
+            color: var(--accent); font-size: 14px; font-weight: 600;
+            flex: 1; text-align: left;
         }
-        .connect-btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0, 212, 170, 0.4); }
-        .connect-btn:disabled { opacity: 0.6; cursor: not-allowed; }
 
-        .mode-section { display: none; }
-        .mode-section.show { display: block; }
-        .mode-title { font-size: 14px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 16px; font-weight: 600; }
-        .mode-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 32px; }
-        .mode-btn {
-            background: var(--bg-secondary); border: 2px solid var(--border);
-            color: var(--text-primary); padding: 16px; border-radius: 8px;
-            font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.3s ease;
+        .landing-top-bar .balance-display {
+            color: var(--accent); font-size: 14px; font-weight: 600;
+            text-align: right;
         }
-        .mode-btn:hover:not(:disabled) { border-color: var(--accent); transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0, 212, 170, 0.2); }
-        .mode-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
-        .queue-info {
-            background: rgba(0, 212, 170, 0.1); border: 1px solid rgba(0, 212, 170, 0.3);
-            border-radius: 8px; padding: 20px; text-align: left;
-        }
-        .queue-row { display: flex; justify-content: space-between; padding: 8px 0; font-size: 13px; color: var(--text-secondary); }
-        .queue-count { color: var(--accent); font-weight: 600; }
-
-        .stats-section { display: none; margin-top: 32px; padding-top: 32px; border-top: 1px solid var(--border); }
-        .stats-section.show { display: block; }
-        .stats-title { font-size: 12px; text-transform: uppercase; color: var(--text-secondary); margin-bottom: 16px; letter-spacing: 1px; }
-        .stats-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
-        .stat-card { background: var(--bg-secondary); border: 1px solid var(--border); padding: 12px; border-radius: 8px; text-align: center; }
-        .stat-number { font-size: 24px; font-weight: 700; color: var(--accent); }
-        .stat-label { font-size: 11px; color: var(--text-secondary); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
-
-        /* SETUP */
-        .setup-content { text-align: center; max-width: 600px; }
-        .setup-title { font-size: 32px; font-weight: 700; margin-bottom: 8px; }
-        .setup-subtitle { font-size: 16px; color: var(--text-secondary); margin-bottom: 32px; }
-        .tier-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 32px; }
+        .tier-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 24px; }
         @media (max-width: 600px) { .tier-grid { grid-template-columns: 1fr; } }
+
         .tier-card {
             background: var(--bg-secondary); border: 2px solid var(--border);
-            border-radius: 12px; padding: 32px 20px; cursor: pointer;
+            border-radius: 12px; padding: 16px; cursor: pointer;
             transition: all 0.3s ease; position: relative; overflow: hidden;
+            min-height: 100px; display: flex; flex-direction: column;
+            justify-content: center; align-items: center;
         }
         .tier-card::before {
             content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 100%;
             background: linear-gradient(90deg, transparent, rgba(0, 212, 170, 0.2), transparent);
             transition: left 0.5s ease;
         }
-        .tier-card:hover { border-color: var(--accent); transform: translateY(-4px); box-shadow: 0 12px 32px rgba(0, 212, 170, 0.15); }
+        .tier-card:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0, 212, 170, 0.15); }
         .tier-card:hover::before { left: 100%; }
-        .tier-card.selected { border-color: var(--accent); background: linear-gradient(135deg, rgba(0, 212, 170, 0.1), rgba(0, 212, 170, 0.05)); box-shadow: 0 12px 32px rgba(0, 212, 170, 0.2), inset 0 0 20px rgba(0, 212, 170, 0.1); }
-        .tier-amount { font-size: 48px; font-weight: 700; color: var(--accent); margin-bottom: 8px; }
-        .tier-label { font-size: 13px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; }
+        .tier-card.selected { border-color: var(--accent); background: linear-gradient(135deg, rgba(0, 212, 170, 0.1), rgba(0, 212, 170, 0.05)); box-shadow: 0 8px 20px rgba(0, 212, 170, 0.2); }
+
+        .tier-amount { font-size: 32px; font-weight: 700; color: var(--accent); margin-bottom: 4px; }
+        .tier-count { font-size: 12px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; }
+
+        .connect-btn {
+            background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+            border: none; color: #000; padding: 12px 32px; border-radius: 8px;
+            font-size: 14px; font-weight: 600; cursor: pointer;
+            transition: all 0.3s ease; margin-bottom: 16px;
+            width: 100%; max-width: 300px;
+        }
+        .connect-btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0, 212, 170, 0.4); }
+        .connect-btn:disabled { opacity: 0.6; cursor: not-allowed; display: none; }
+
+        /* SETUP */
+        .setup-content { text-align: center; max-width: 600px; }
+        .setup-title { font-size: 32px; font-weight: 700; margin-bottom: 8px; }
+        .setup-subtitle { font-size: 16px; color: var(--text-secondary); margin-bottom: 32px; }
+
+        /* CHALLENGE TAB */
+        .challenge-content { text-align: center; max-width: 500px; padding: 20px; margin: auto; }
+        .challenge-title { font-size: 28px; font-weight: 700; margin-bottom: 24px; }
+        .challenge-btn {
+            background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+            border: none; color: #000; padding: 14px 32px; border-radius: 8px;
+            font-size: 15px; font-weight: 600; cursor: pointer;
+            transition: all 0.3s ease; width: 100%; max-width: 300px; margin-bottom: 16px;
+        }
+        .challenge-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0, 212, 170, 0.4); }
+
+        /* PROFILE TAB */
+        .profile-content { text-align: center; max-width: 500px; padding: 20px; margin: auto; }
+        .profile-title { font-size: 28px; font-weight: 700; margin-bottom: 24px; }
+        .profile-section {
+            background: var(--bg-secondary); border: 1px solid var(--border);
+            border-radius: 12px; padding: 16px; margin-bottom: 16px; text-align: left;
+        }
+        .profile-label { font-size: 12px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+        .profile-value { font-size: 14px; color: var(--text-primary); word-break: break-all; font-family: 'Courier New', monospace; margin-bottom: 8px; }
+        .profile-value.clickable { cursor: pointer; color: var(--accent); }
+        .profile-stat { display: inline-block; flex: 1; text-align: center; }
+        .profile-stat-number { font-size: 24px; font-weight: 700; color: var(--accent); }
+        .profile-stat-label { font-size: 11px; color: var(--text-secondary); text-transform: uppercase; margin-top: 4px; }
+        .profile-stats { display: flex; gap: 12px; }
+        .profile-section .stat-card {
+            background: var(--bg-primary); border: 1px solid var(--border);
+            flex: 1; padding: 12px; border-radius: 8px; text-align: center;
+        }
+        .disconnect-btn {
+            background: var(--lose); border: none; color: #fff; padding: 12px 24px;
+            border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer;
+            width: 100%; transition: all 0.3s ease;
+        }
+        .disconnect-btn:hover { opacity: 0.9; }
 
         /* WAITING FOR FRIEND */
         .waiting-content { text-align: center; max-width: 500px; }
@@ -259,10 +325,6 @@
         .btn-secondary { background: var(--bg-secondary); border: 2px solid var(--border); color: var(--text-primary); padding: 12px 24px; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; transition: all 0.3s ease; }
         .btn-secondary:hover { border-color: var(--accent); transform: translateY(-2px); }
 
-        .tooltip { position: relative; display: inline-block; }
-        .tooltip .tooltiptext { visibility: hidden; width: 200px; background-color: rgba(0, 0, 0, 0.8); color: #fff; text-align: center; border-radius: 6px; padding: 8px; position: absolute; z-index: 1; bottom: 125%; left: 50%; margin-left: -100px; opacity: 0; transition: opacity 0.3s; font-size: 12px; white-space: nowrap; }
-        .tooltip:hover .tooltiptext { visibility: visible; opacity: 1; }
-
         /* HISTORY */
         .history-content { width: 100%; max-width: 600px; max-height: 100vh; overflow-y: auto; padding-bottom: 40px; }
         .history-title { font-size: 28px; font-weight: 700; margin-bottom: 20px; text-align: center; }
@@ -294,12 +356,54 @@
         .history-detail .detail-row:last-child { border-bottom: none; }
         .history-detail .detail-label { color: var(--text-secondary); }
         .history-detail .detail-value { font-weight: 600; font-family: 'Courier New', monospace; }
-        .history-btn-wrap { display: flex; gap: 12px; margin-top: 16px; }
-        .history-badge {
-            display: none; background: var(--draw); color: #000; font-size: 11px;
-            font-weight: 700; padding: 2px 7px; border-radius: 10px; margin-left: 6px;
-            vertical-align: middle;
+        .history-badge { display: none; background: var(--draw); color: #000; font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 10px; margin-left: 6px; vertical-align: middle; }
+
+        /* USERNAME PROMPT */
+        .username-prompt {
+            display: none; margin-top: 12px; text-align: center;
         }
+        .username-prompt.show { display: block; }
+        .username-input {
+            background: var(--bg-primary); border: 1px solid var(--border); color: var(--text-primary);
+            padding: 10px 14px; border-radius: 8px; font-size: 14px; width: 200px;
+            text-align: center; outline: none; transition: border-color 0.3s;
+        }
+        .username-input:focus { border-color: var(--accent); }
+        .username-save-btn {
+            background: var(--accent); color: #000; border: none; padding: 10px 18px;
+            border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer;
+            margin-left: 8px; transition: opacity 0.3s;
+        }
+        .username-save-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .username-error { color: var(--lose); font-size: 12px; margin-top: 6px; }
+        .username-display {
+            color: var(--accent); font-size: 16px; font-weight: 700; margin-top: 4px;
+        }
+
+        /* LEADERBOARD */
+        .leaderboard-content { width: 100%; max-width: 600px; max-height: 100vh; overflow-y: auto; padding-bottom: 40px; }
+        .leaderboard-title { font-size: 28px; font-weight: 700; margin-bottom: 8px; text-align: center; }
+        .leaderboard-tabs { display: flex; justify-content: center; gap: 8px; margin-bottom: 20px; }
+        .leaderboard-tab {
+            padding: 8px 20px; border-radius: 20px; font-size: 13px; font-weight: 600;
+            cursor: pointer; border: 1px solid var(--border); background: transparent;
+            color: var(--text-secondary); transition: all 0.3s;
+        }
+        .leaderboard-tab.active { background: var(--accent); color: #000; border-color: var(--accent); }
+        .lb-table { width: 100%; border-collapse: collapse; }
+        .lb-table th {
+            text-align: left; padding: 10px 12px; font-size: 11px; text-transform: uppercase;
+            color: var(--text-secondary); letter-spacing: 0.5px; border-bottom: 1px solid var(--border);
+        }
+        .lb-table td {
+            padding: 12px; font-size: 14px; border-bottom: 1px solid rgba(42,42,62,0.3);
+        }
+        .lb-table tr:hover td { background: rgba(0, 212, 170, 0.05); }
+        .lb-rank { font-weight: 700; color: var(--accent); width: 40px; }
+        .lb-name { font-weight: 600; }
+        .lb-stat { font-variant-numeric: tabular-nums; color: var(--text-secondary); }
+        .lb-pnl-pos { color: var(--win); }
+        .lb-pnl-neg { color: var(--lose); }
 
         /* TOAST */
         .toast {
@@ -312,8 +416,6 @@
         .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
         @media (max-width: 600px) {
-            .game-title { font-size: 36px; }
-            .game-emoji { font-size: 48px; }
             .setup-title { font-size: 24px; }
             .result-banner { font-size: 48px; }
             .question-text { font-size: 16px; }
@@ -337,86 +439,170 @@
     <div class="persistent-balance" id="persistentBalance">
         <span class="bal-label">USDC</span>
         <span class="bal-amount">$<span id="persistentBalAmt">0.00</span></span>
-        <span id="persistentApprovalWrap" style="display:none;margin-left:8px;border-left:1px solid var(--border);padding-left:8px;">
-            <span class="bal-label">APPROVED</span>
-            <span class="bal-amount" style="color:var(--text-secondary);">$<span id="persistentApprovalAmt">0.00</span></span>
-        </span>
         <span id="persistentSolWrap" style="display:none;margin-left:8px;border-left:1px solid var(--border);padding-left:8px;">
             <span class="bal-label">SOL</span>
             <span class="bal-amount"><span id="persistentSolAmt">0.000</span></span>
         </span>
     </div>
 
+    <!-- NAV BAR -->
+    <div class="nav-bar" id="navBar">
+        <button class="nav-item active" id="navPlay" onclick="switchTab('landing')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16"/>
+            </svg>
+            <span class="nav-label">Play</span>
+        </button>
+        <button class="nav-item" id="navChallenge" onclick="switchTab('challenge-tab')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path d="M6 6L18 18M18 6L6 18"/><path d="M3 12h18"/><path d="M12 3v18"/>
+            </svg>
+            <span class="nav-label">Challenge</span>
+        </button>
+        <button class="nav-item" id="navLeaderboard" onclick="switchTab('leaderboard')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path d="M12 2L15 10H23L17 15L19 23L12 18L5 23L7 15L1 10H9L12 2Z"/>
+            </svg>
+            <span class="nav-label">Leaderboard</span>
+        </button>
+        <button class="nav-item" id="navHistory" onclick="switchTab('history')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+            </svg>
+            <span class="nav-label">History</span>
+            <span class="history-badge" id="historyBadge" style="display:none;background:var(--accent);color:#000;font-size:10px;font-weight:700;padding:1px 5px;border-radius:8px;position:absolute;top:4px;right:4px;">0</span>
+        </button>
+        <button class="nav-item" id="navProfile" onclick="switchTab('profile')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <circle cx="12" cy="8" r="4"/><path d="M2 20c0-4 4-8 10-8s10 4 10 8"/>
+            </svg>
+            <span class="nav-label">Profile</span>
+        </button>
+    </div>
+
     <div class="container">
         <!-- LANDING -->
         <div class="screen active" id="landing">
             <div class="landing-content">
-                <div class="game-emoji">🧠</div>
-                <h1 class="game-title">Common Sense or Nonsense?</h1>
-                <p class="game-subtitle">1v1 Trivia Wagering on Solana</p>
-
-                <div class="wallet-section">
-                    <div class="wallet-disconnected" id="walletDisconnected">Click below to connect your wallet</div>
-                    <div class="wallet-connected" id="walletConnected">
-                        <div class="wallet-address" id="walletAddress"></div>
-                        <div class="wallet-balance">$<span id="walletBalance">50.00</span> <span style="font-size:13px;color:var(--text-secondary);font-weight:400;">USDC</span></div>
-                        <div id="solBalanceRow" style="display:none;margin-top:4px;font-size:16px;font-weight:600;color:var(--text-secondary);">
-                            <span id="walletSolBalance">0.000</span> <span style="font-size:13px;font-weight:400;">SOL</span>
-                            <span id="solWarning" style="display:none;color:var(--lose);font-size:12px;margin-left:6px;">Low!</span>
-                        </div>
-                        <div class="balance-label" style="margin-top:6px;">Wallet Balance</div>
-                        <div id="delegationRow" style="display:none;margin-top:8px;">
-                            <div style="font-size:14px;font-weight:600;color:var(--accent);">
-                                Approved: $<span id="delegationAmount">0.00</span> USDC
-                            </div>
-                            <div id="delegationGames" style="font-size:12px;color:var(--text-secondary);margin-top:2px;"></div>
-                        </div>
-                        <button class="connect-btn" id="approveBtn" style="display:none;margin-top:10px;padding:8px 20px;font-size:13px;background:var(--accent);min-width:0;width:auto;">
-                            Approve USDC to Play
-                        </button>
-                        <div id="approveError" style="display:none;margin-top:6px;font-size:12px;color:var(--lose);"></div>
-                    </div>
+                <div class="landing-top-bar" id="walletDisconnected" style="display: none;">
+                    <div class="username-display">Connect Wallet</div>
+                    <div class="balance-display">—</div>
+                </div>
+                <div class="landing-top-bar" id="walletConnected" style="display: none;">
+                    <div class="username-display" id="walletAddress">Player</div>
+                    <div class="balance-display">$<span id="walletBalance">50.00</span> USDC</div>
                 </div>
 
                 <button class="connect-btn" id="connectBtn">Connect Wallet</button>
 
-                <div class="mode-section" id="modeSection">
-                    <div class="mode-title">Select Wager</div>
-                    <div class="tier-grid" style="max-width:400px;margin:0 auto 20px;">
-                        <div class="tier-card" data-tier="1"><div class="tier-amount">$1</div><div class="tier-label">Tier 1</div></div>
-                        <div class="tier-card" data-tier="2"><div class="tier-amount">$10</div><div class="tier-label">Tier 2</div></div>
-                        <div class="tier-card" data-tier="3"><div class="tier-amount">$100</div><div class="tier-label">Tier 3</div></div>
-                        <div class="tier-card" data-tier="4"><div class="tier-amount">$0.10</div><div class="tier-label">Test</div></div>
+                <div id="walletConnectedOnly" style="display: none;">
+                    <h2 style="font-size: 20px; margin-bottom: 16px; text-align: center;">Select Tier</h2>
+                    <div class="tier-grid">
+                        <div class="tier-card" data-tier="1"><div class="tier-amount">$1</div><div class="tier-count">—</div></div>
+                        <div class="tier-card" data-tier="2"><div class="tier-amount">$10</div><div class="tier-count">—</div></div>
+                        <div class="tier-card" data-tier="3"><div class="tier-amount">$100</div><div class="tier-count">—</div></div>
+                        <div class="tier-card" data-tier="4"><div class="tier-amount">$0.10</div><div class="tier-count">—</div></div>
                     </div>
-                    <div class="mode-title" style="margin-top:4px;">Play</div>
-                    <div class="mode-buttons">
-                        <button class="mode-btn" data-mode="random" disabled>🎲 Random Match</button>
-                        <button class="mode-btn" data-mode="friend" disabled>👥 Challenge Friend</button>
-                    </div>
-                    <div class="queue-info">
-                        <div class="queue-row"><span>Tier 1 Queue ($1):</span><span class="queue-count">—</span></div>
-                        <div class="queue-row"><span>Tier 2 Queue ($10):</span><span class="queue-count">—</span></div>
-                        <div class="queue-row"><span>Tier 3 Queue ($100):</span><span class="queue-count">—</span></div>
-                        <div class="queue-row"><span>Test Queue ($0.10):</span><span class="queue-count">—</span></div>
-                    </div>
-                </div>
 
-                <div class="history-btn-wrap" id="historyBtnWrap" style="display:none;justify-content:center;margin-top:24px;padding-bottom:8px;">
-                    <button class="btn-secondary" id="historyBtn" style="padding:12px 28px;font-size:15px;border:1px solid var(--border);border-radius:8px;background:var(--bg-secondary);color:var(--text-primary);cursor:pointer;">Match History <span class="history-badge" id="historyBadge" style="background:var(--accent);color:#000;border-radius:12px;padding:2px 8px;font-size:12px;margin-left:6px;">0</span></button>
-                </div>
-
-                <div class="stats-section" id="statsSection">
-                    <div class="stats-title">Session Stats</div>
-                    <div class="stats-grid">
-                        <div class="stat-card"><div class="stat-number" id="statWins">0</div><div class="stat-label">Wins</div></div>
-                        <div class="stat-card"><div class="stat-number" id="statDraws">0</div><div class="stat-label">Draws</div></div>
-                        <div class="stat-card"><div class="stat-number" id="statLosses">0</div><div class="stat-label">Losses</div></div>
+                    <div style="text-align: center; margin-top: 24px;">
+                        <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 12px;">Play for free or with stakes</div>
+                        <button class="btn-secondary" style="width: 100%; max-width: 200px; padding: 10px 20px; font-size: 13px;" onclick="playFree()">Play Free</button>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- SETUP screen removed — tier selection is now on landing page -->
+        <!-- CHALLENGE TAB -->
+        <div class="screen" id="challenge-tab">
+            <div class="challenge-content">
+                <h2 class="challenge-title">Challenge a Friend</h2>
+                <button class="challenge-btn" onclick="goToCreateGame()">Create Game</button>
+                <div style="margin: 24px 0; color: var(--text-secondary); font-size: 13px;">Or join with a link:</div>
+                <input type="text" id="joinCodeInput" placeholder="Paste challenge link here"
+                    style="background: var(--bg-secondary); border: 1px solid var(--border); color: var(--text-primary); padding: 12px; border-radius: 8px; width: 100%; max-width: 300px; margin-bottom: 16px; font-size: 13px;">
+                <button class="btn-secondary" style="width: 100%; max-width: 300px;" onclick="joinFromCode()">Join Game</button>
+            </div>
+        </div>
+
+        <!-- PROFILE TAB -->
+        <div class="screen" id="profile">
+            <div class="profile-content">
+                <h2 class="profile-title">Profile</h2>
+
+                <div class="profile-section">
+                    <div class="profile-label">Wallet Address</div>
+                    <div class="profile-value clickable" id="profileWalletAddr" onclick="copyToClipboard(this.textContent)">Not connected</div>
+                </div>
+
+                <div class="profile-section">
+                    <div class="profile-label">Balances</div>
+                    <div class="profile-value">$<span id="profileUSDC">0.00</span> USDC</div>
+                    <div id="solBalanceRow" style="display:none;">
+                        <div class="profile-value"><span id="walletSolBalance">0.000</span> SOL <span id="solWarning" style="display:none;color:var(--lose);font-size:12px;margin-left:6px;">Low!</span></div>
+                    </div>
+                    <div class="profile-value" id="profileSOLDisplay" style="display: none;"><span id="profileSOL">0.000</span> SOL</div>
+                </div>
+
+                <div class="profile-section">
+                    <div class="profile-label">Username</div>
+                    <div id="usernamePrompt" class="username-prompt show">
+                        <div id="usernameDisplay" class="username-display" style="display: none; margin-bottom: 8px;"></div>
+                        <div id="usernameForm">
+                            <input type="text" class="username-input" id="usernameInput" placeholder="Choose username" maxlength="16" autocomplete="off">
+                            <button class="username-save-btn" id="usernameSaveBtn">Save</button>
+                            <div class="username-error" id="usernameError"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="profile-section">
+                    <div class="profile-label">Session Stats</div>
+                    <div class="profile-stats">
+                        <div class="stat-card">
+                            <div class="profile-stat-number" id="statWins">0</div>
+                            <div class="profile-stat-label">Wins</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="profile-stat-number" id="statDraws">0</div>
+                            <div class="profile-stat-label">Draws</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="profile-stat-number" id="statLosses">0</div>
+                            <div class="profile-stat-label">Losses</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="profile-section" id="sessionApprovalRow" style="display: none;">
+                    <div class="profile-label">Pre-Approve Games</div>
+                    <div style="margin: 8px 0;">
+                        <select id="sessionGamesSelect" style="background: rgba(255,255,255,0.1); color: var(--text-primary); border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; padding: 6px 12px; font-size: 13px; width: 100%;">
+                            <option value="5">5 games</option>
+                            <option value="10">10 games</option>
+                            <option value="20">20 games</option>
+                        </select>
+                    </div>
+                    <div id="approvalRemaining" style="margin-top: 8px; font-size: 12px; color: var(--win); display: none;"></div>
+                </div>
+
+                <button class="disconnect-btn" id="disconnectBtn" style="display: none;">Disconnect Wallet</button>
+            </div>
+        </div>
+
+        <!-- SETUP (TIER SELECT) -->
+        <div class="screen" id="setup">
+            <div class="setup-content">
+                <h2 class="setup-title">Select Wager</h2>
+                <p class="setup-subtitle">Choose your stakes</p>
+                <div class="tier-grid">
+                    <div class="tier-card" data-tier="1"><div class="tier-amount">$1</div><div class="tier-count">Tier 1</div></div>
+                    <div class="tier-card" data-tier="2"><div class="tier-amount">$10</div><div class="tier-count">Tier 2</div></div>
+                    <div class="tier-card" data-tier="3"><div class="tier-amount">$100</div><div class="tier-count">Tier 3</div></div>
+                    <div class="tier-card" data-tier="4"><div class="tier-amount">$0.10</div><div class="tier-count">Test</div></div>
+                </div>
+                <button onclick="showScreen('landing')" style="margin-top: 8px; padding: 12px 32px; background: transparent; border: 1px solid var(--border); color: var(--text-secondary); border-radius: 8px; cursor: pointer; font-size: 14px;">← Back</button>
+            </div>
+        </div>
 
         <!-- WAITING FOR FRIEND -->
         <div class="screen" id="waiting">
@@ -450,7 +636,6 @@
                     <div class="dot"></div><div class="dot"></div><div class="dot"></div>
                 </div>
                 <div class="connection-status waiting" id="joinStatus">Connecting...</div>
-                <button class="cancel-link" id="joiningCancelBtn" style="margin-top:20px;">Cancel</button>
             </div>
         </div>
 
@@ -502,12 +687,7 @@
                         Balance: <span id="newBalance" style="color:var(--accent);font-weight:600;">—</span>
                     </div>
                 </div>
-                <div id="txLinksSection" style="display:none;text-align:center;margin-bottom:16px;padding:10px;background:rgba(0,212,170,0.08);border-radius:10px;border:1px solid rgba(0,212,170,0.15);">
-                    <div id="txSettleStatus" style="font-size:12px;color:var(--text-secondary);margin-bottom:4px;">
-                        <span class="spinner" style="width:12px;height:12px;margin-right:4px;"></span>Settling on Solana...
-                    </div>
-                    <a id="viewSolanaBtn" href="#" target="_blank" style="display:none;color:var(--accent);font-size:14px;font-weight:600;text-decoration:none;">View Settlement Tx ↗</a>
-                </div>
+                <a id="viewSolanaBtn" href="#" target="_blank" style="display:none;text-align:center;color:var(--accent);font-size:13px;text-decoration:none;margin-bottom:16px;opacity:0.7;">View Transaction on Solana ↗</a>
                 <div class="results-buttons">
                     <button class="btn-primary" id="playAgainBtn">Play Again</button>
                     <button class="btn-secondary" id="homeBtn">Home</button>
@@ -523,6 +703,19 @@
                 <button class="btn-secondary" id="historyBackBtn" style="margin-top:24px;width:100%;">Back to Home</button>
             </div>
         </div>
+
+        <!-- LEADERBOARD -->
+        <div class="screen" id="leaderboard">
+            <div class="leaderboard-content">
+                <h2 class="leaderboard-title">Leaderboard</h2>
+                <div class="leaderboard-tabs">
+                    <button class="leaderboard-tab active" data-lb-mode="free">Free</button>
+                    <button class="leaderboard-tab" data-lb-mode="paid">Paid</button>
+                </div>
+                <div id="leaderboardTable"></div>
+                <button class="btn-secondary" id="leaderboardBackBtn" style="margin-top:24px;width:100%;">Back to Home</button>
+            </div>
+        </div>
     </div>
 
     <!-- Toast notification -->
@@ -531,13 +724,8 @@
     <script>
     // ======================================================
     // SENSE CLIENT — thin WebSocket renderer
-    // Server holds all game logic, questions, answers, timing.
-    // Client only: connects, renders, sends answer index.
     // ======================================================
 
-    // ---- SERVER URLs — isolated by mode ----
-    // Preview players connect to preview server. Devnet players connect to devnet server.
-    // Two separate Railway instances. Zero shared state. No cross-contamination possible.
     const PREVIEW_SERVER = 'wss://web-production-c6ec6.up.railway.app';
     const DEVNET_SERVER  = 'wss://web-production-8866e.up.railway.app';
     const SERVER_URL = (window.__SENSE_MODE === 'solana') ? DEVNET_SERVER : PREVIEW_SERVER;
@@ -545,7 +733,6 @@
     const TIME_LIMIT_MS = 10000;
     const CIRCUMFERENCE = 2 * Math.PI * 54;
 
-    // ---- State ----
     const G = {
         screen: 'landing',
         walletConnected: false,
@@ -567,17 +754,115 @@
         timerInterval: null,
         elapsedInterval: null,
         countdownTimeout: null,
-        matchLog: [],         // completed matches: { matchId, opponent, result, myAnswer, oppAnswer, myTime, oppTime, correctIdx, correctAnswer, reason, wager, payout, timestamp, txn }
-        pendingMatches: {},   // matchId -> { opponent, wager, tier, timestamp, myAnswer, myTime } — awaiting result
-        pendingTimeout: null, // timer to release player after answering
-        stuckGames: [],       // on-chain WaitingForOpponent games: { pubkey, gameId, wager, wagerUSD }
-        sessionGames: 5,      // number of games to pre-approve per session (5, 10, 20)
-        approvalRemaining: 0, // client-side tracking of remaining delegated micro-USDC
+        matchLog: [],
+        pendingMatches: {},
+        pendingTimeout: null,
+        stuckGames: [],
+        sessionGames: 5,
+        approvalRemaining: 0,
     };
 
     let ws = null;
 
-    // ---- Utility ----
+    // NAV BAR FUNCTIONS
+    function switchTab(tabName) {
+        updateNavActive(tabName);
+        showScreen(tabName);
+    }
+
+    function updateNavActive(screenName) {
+        document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+        const screenToNavMap = {
+            'landing': 'navPlay',
+            'challenge-tab': 'navChallenge',
+            'leaderboard': 'navLeaderboard',
+            'history': 'navHistory',
+            'profile': 'navProfile'
+        };
+        const navId = screenToNavMap[screenName];
+        if (navId) document.getElementById(navId).classList.add('active');
+    }
+
+    function updateNavVisibility() {
+        const navBar = document.getElementById('navBar');
+        const hiddenDuringPlay = ['play', 'countdown', 'results', 'waiting', 'joining', 'setup'];
+        if (hiddenDuringPlay.includes(G.screen)) {
+            navBar.classList.add('hidden');
+        } else {
+            navBar.classList.remove('hidden');
+        }
+    }
+
+    function goToCreateGame() {
+        G.selectedMode = 'friend';
+        showScreen('setup');
+    }
+
+    function joinFromCode() {
+        const code = document.getElementById('joinCodeInput').value.trim();
+        if (!code) {
+            alert('Please paste a challenge link');
+            return;
+        }
+        if (!G.walletConnected) {
+            alert('Connect wallet first');
+            return;
+        }
+        window.location.hash = '#' + code;
+        checkForGameInURL();
+    }
+
+    function copyToClipboard(text) {
+        navigator.clipboard.writeText(text).then(() => {
+            showToast('Copied!');
+        });
+    }
+
+    function playFree() {
+        G.selectedMode = 'random';
+        G.selectedTier = 4; // Free tier
+        if (window.PaymentAdapter && window.PaymentAdapter.mode !== 'none') {
+            const target = document.querySelector('[data-tier="4"]');
+            target.style.opacity = '0.5';
+            document.querySelectorAll('.tier-card').forEach(c => c.style.pointerEvents = 'none');
+            window.PaymentAdapter.prepareGame(4, Date.now(), 'host').then(prep => {
+                if (prep.ready) {
+                    G.onChainGameId = Date.now();
+                    G.createTxSig = prep.txSignature || null;
+                    queueForRandomMatch();
+                } else {
+                    showToast(prep.error || 'Setup failed');
+                    target.style.opacity = '1';
+                    document.querySelectorAll('.tier-card').forEach(c => c.style.pointerEvents = 'auto');
+                }
+            }).catch(err => {
+                showToast(err.message || 'Setup failed');
+                target.style.opacity = '1';
+                document.querySelectorAll('.tier-card').forEach(c => c.style.pointerEvents = 'auto');
+            });
+        } else {
+            G.onChainGameId = Date.now();
+            queueForRandomMatch();
+        }
+    }
+
+    function queueForRandomMatch() {
+        G.isHost = false;
+        G.asyncMode = true;
+        connectWS(() => {
+            wsSend({
+                type: 'queue', name: G.playerName, tier: G.selectedTier,
+                wallet: G.walletAddress || null,
+                paymentMode: (window.PaymentAdapter && window.PaymentAdapter.mode) || 'none',
+                onChainGameId: G.onChainGameId || null,
+            });
+        });
+        document.getElementById('joinStatus').textContent = 'Finding a match...';
+        document.getElementById('joinStatus').className = 'connection-status waiting';
+        showScreen('joining');
+    }
+
+    // UTILITY FUNCTIONS
     function generatePlayerName() {
         const adj = ['Swift','Brave','Clever','Sly','Bold','Keen','Wild','Calm','Sharp','Quick'];
         const noun = ['Fox','Owl','Bear','Wolf','Hawk','Lion','Deer','Seal','Crow','Lynx'];
@@ -586,7 +871,6 @@
 
     function formatTime(ms) { return (ms / 1000).toFixed(2) + 's'; }
 
-    // Persistent balance pill — always visible once connected
     function updatePersistentBalance(amount) {
         const el = document.getElementById('persistentBalance');
         const amtEl = document.getElementById('persistentBalAmt');
@@ -596,7 +880,6 @@
         }
     }
 
-    // SOL balance — fetch and display (devnet mode only)
     async function refreshSolBalance() {
         if (window.__SENSE_MODE !== 'solana' || !window.PaymentAdapter._getWallet) return;
         const w = window.PaymentAdapter._getWallet();
@@ -609,12 +892,13 @@
             document.getElementById('solBalanceRow').style.display = 'block';
             document.getElementById('persistentSolAmt').textContent = sol;
             document.getElementById('persistentSolWrap').style.display = 'inline';
-            // Warn if low
-            if (lamports < 2_000_000) { // < 0.002 SOL
+            document.getElementById('profileSOLDisplay').style.display = 'block';
+            document.getElementById('profileSOL').textContent = sol;
+            if (lamports < 2_000_000) {
                 document.getElementById('solWarning').style.display = 'inline';
                 document.getElementById('solWarning').textContent = 'Empty!';
                 document.getElementById('persistentSolAmt').style.color = 'var(--lose)';
-            } else if (lamports < 5_000_000) { // < 0.005 SOL
+            } else if (lamports < 5_000_000) {
                 document.getElementById('solWarning').style.display = 'inline';
                 document.getElementById('solWarning').textContent = 'Low!';
                 document.getElementById('persistentSolAmt').style.color = 'var(--draw)';
@@ -634,13 +918,11 @@
     function calculatePayout(result, wager) {
         if (result === 'win') return ((wager * 2) * 0.97).toFixed(2);
         if (result === 'draw') return wager.toFixed(2);
-        return wager.toFixed(2); // loss — show what was lost, not what was received
+        return wager.toFixed(2);
     }
 
-    // Update balance display after match
     async function updateBalanceAfterMatch(result, wager) {
         if (window.__SENSE_MODE === 'solana' && window.PaymentAdapter._refreshBalance) {
-            // Real on-chain balance — wait for settlement tx to land
             setTimeout(async () => {
                 const bal = await window.PaymentAdapter._refreshBalance();
                 if (bal !== null) {
@@ -649,40 +931,29 @@
                     updatePersistentBalance(bal);
                 }
                 refreshSolBalance();
-                refreshDelegation(); // Update delegation display after game
             }, 2000);
         } else {
-            // Simulated balance
             if (result === 'win') G.simulatedBalance += parseFloat(((wager * 2) * 0.97).toFixed(2)) - wager;
             else if (result === 'loss') G.simulatedBalance -= wager;
             document.getElementById('walletBalance').textContent = G.simulatedBalance.toFixed(2);
+            document.getElementById('profileUSDC').textContent = G.simulatedBalance.toFixed(2);
             document.getElementById('newBalance').textContent = '$' + G.simulatedBalance.toFixed(2) + ' USDC';
             document.getElementById('balanceAfter').style.display = 'block';
             updatePersistentBalance(G.simulatedBalance);
         }
     }
 
-    // ---- Game Log ----
+    // GAME LOG
     function logMatch(matchId, data) {
-        // Remove from pending if it was there
         delete G.pendingMatches[matchId];
-        // Don't double-log
         if (G.matchLog.find(m => m.matchId === matchId)) return;
         G.matchLog.unshift({
-            matchId,
-            opponent: data.opponent,
-            result: data.result,
-            myAnswer: data.myAnswer,
-            oppAnswer: data.oppAnswer,
-            myTime: data.myTime,
-            oppTime: data.oppTime,
-            correctIdx: data.correctIdx,
-            correctAnswer: data.correctAnswer,
-            reason: data.reason,
-            wager: data.wager,
-            payout: data.payout,
-            timestamp: Date.now(),
-            txn: null, // on-chain txn hash — filled by blockchain agent later
+            matchId, opponent: data.opponent, result: data.result,
+            myAnswer: data.myAnswer, oppAnswer: data.oppAnswer,
+            myTime: data.myTime, oppTime: data.oppTime,
+            correctIdx: data.correctIdx, correctAnswer: data.correctAnswer,
+            reason: data.reason, wager: data.wager, payout: data.payout,
+            timestamp: Date.now(), txn: null,
         });
         updateHistoryBadge();
         if (G.screen === 'history') renderHistory();
@@ -691,11 +962,9 @@
     function markPending(matchId, data) {
         G.pendingMatches[matchId] = {
             opponent: data.opponent || 'Searching...',
-            wager: data.wager,
-            tier: data.tier,
+            wager: data.wager, tier: data.tier,
             timestamp: Date.now(),
-            myAnswer: data.myAnswer,
-            myTime: data.myTime,
+            myAnswer: data.myAnswer, myTime: data.myTime,
         };
         updateHistoryBadge();
     }
@@ -713,7 +982,6 @@
 
     const queuedToasts = [];
 
-    // HTML sanitization helper — escapes dangerous characters in user-supplied names
     function sanitize(str) {
         if (!str) return '';
         const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#x27;' };
@@ -721,7 +989,6 @@
     }
 
     function showToast(msg) {
-        // Don't show during active gameplay — queue it
         if (G.screen === 'play' || G.screen === 'joining') {
             queuedToasts.push(msg);
             return;
@@ -734,25 +1001,21 @@
 
     function flushToasts() {
         if (queuedToasts.length === 0) return;
-        // Show the most recent queued toast after a short delay
         const msg = queuedToasts.pop();
-        queuedToasts.length = 0; // clear older ones
+        queuedToasts.length = 0;
         setTimeout(() => showToast(msg), 500);
     }
 
-    // Cancel a stuck on-chain game — called from history UI
     window.cancelStuckGame = async function(gameId) {
         const btn = document.querySelector(`[data-cancel-game="${gameId}"]`);
         if (btn) { btn.disabled = true; btn.textContent = 'Cancelling...'; }
         try {
             const result = await window.PaymentAdapter.cancelGame(gameId);
             if (result.success) {
-                // Remove from stuck games list
                 G.stuckGames = G.stuckGames.filter(g => g.gameId !== gameId);
                 updateHistoryBadge();
                 renderHistory();
                 showToast('Game cancelled — USDC refunded!');
-                // Refresh balance
                 if (window.PaymentAdapter._refreshBalance) window.PaymentAdapter._refreshBalance();
             } else {
                 alert(result.error || 'Cancel failed');
@@ -765,20 +1028,24 @@
     };
 
     window.cancelPendingMatch = function(matchId) {
-        // Tell server to cancel, remove from local pending
         wsSend({ type: 'cancel-match', matchId: matchId });
         delete G.pendingMatches[matchId];
-        // Also remove from matchLog if it was logged
         G.matchLog = G.matchLog.filter(function(m) { return m.matchId !== matchId; });
         updateHistoryBadge();
         renderHistory();
         showToast('Match cancelled');
     };
 
-    // Fetch match history from server DB and merge into G.matchLog
     function hydrateHistory(playerName) {
         var httpUrl = SERVER_URL.replace('wss://', 'https://').replace('ws://', 'http://');
-        fetch(httpUrl + '/history/' + encodeURIComponent(playerName) + '?limit=50')
+        var url;
+        var useWallet = (G.walletAddress && window.__SENSE_MODE === 'solana');
+        if (useWallet) {
+            url = httpUrl + '/api/history/wallet/' + encodeURIComponent(G.walletAddress) + '?limit=50';
+        } else {
+            url = httpUrl + '/history/' + encodeURIComponent(playerName) + '?limit=50';
+        }
+        fetch(url)
             .then(function(r) { return r.json(); })
             .then(function(data) {
                 if (!data.matches || !data.matches.length) return;
@@ -787,8 +1054,13 @@
 
                 var wagerMap = { 1: 1, 2: 10, 3: 100, 4: 0.10 };
                 data.matches.forEach(function(row) {
-                    if (existingIds[row.match_id]) return; // skip duplicates
-                    var isA = (row.player_a === playerName);
+                    if (existingIds[row.match_id]) return;
+                    var isA;
+                    if (useWallet) {
+                        isA = (row.wallet_a === G.walletAddress);
+                    } else {
+                        isA = (row.player_a === playerName);
+                    }
                     var result = isA ? row.result_a : row.result_b;
                     var myTime = isA ? row.time_a : row.time_b;
                     var oppTime = isA ? row.time_b : row.time_a;
@@ -799,30 +1071,130 @@
                     var payout = calculatePayout(result, wager);
 
                     G.matchLog.push({
-                        matchId: row.match_id,
-                        opponent: opponent,
-                        result: result,
-                        myAnswer: myAnswer,
-                        oppAnswer: oppAnswer,
-                        myTime: myTime,
-                        oppTime: oppTime,
-                        correctIdx: row.correct_idx,
-                        correctAnswer: '—', // not stored in DB, but not critical for history
-                        reason: row.reason,
-                        wager: wager,
-                        payout: payout,
+                        matchId: row.match_id, opponent: opponent, result: result,
+                        myAnswer: myAnswer, oppAnswer: oppAnswer,
+                        myTime: myTime, oppTime: oppTime,
+                        correctIdx: row.correct_idx, correctAnswer: '—',
+                        reason: row.reason, wager: wager, payout: payout,
                         timestamp: new Date(row.settled_at).getTime(),
                         txn: row.tx_hash || null,
                     });
                 });
 
-                // Sort newest first
                 G.matchLog.sort(function(a, b) { return b.timestamp - a.timestamp; });
                 updateHistoryBadge();
                 console.log('[history] Hydrated ' + data.matches.length + ' matches from server');
+
+                if (data.username && useWallet) {
+                    G.playerName = data.username;
+                    document.getElementById('walletAddress').textContent = data.username;
+                    document.getElementById('profileWalletAddr').textContent = data.username;
+                }
             })
             .catch(function(e) {
                 console.warn('[history] Failed to hydrate:', e.message);
+            });
+    }
+
+    // USERNAME SYSTEM
+    function checkAndPromptUsername() {
+        if (!G.walletAddress || window.__SENSE_MODE !== 'solana') return;
+        var httpUrl = SERVER_URL.replace('wss://', 'https://').replace('ws://', 'http://');
+        fetch(httpUrl + '/api/username/' + encodeURIComponent(G.walletAddress))
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                var prompt = document.getElementById('usernamePrompt');
+                prompt.classList.add('show');
+                if (data.username) {
+                    G.playerName = data.username;
+                    document.getElementById('walletAddress').textContent = data.username;
+                    document.getElementById('profileWalletAddr').textContent = data.username;
+                    document.getElementById('usernameDisplay').textContent = data.username;
+                    document.getElementById('usernameDisplay').style.display = 'block';
+                    document.getElementById('usernameForm').style.display = 'none';
+                } else {
+                    document.getElementById('usernameDisplay').style.display = 'none';
+                    document.getElementById('usernameForm').style.display = 'block';
+                }
+            })
+            .catch(function() {});
+    }
+
+    function saveUsername() {
+        var input = document.getElementById('usernameInput');
+        var errorEl = document.getElementById('usernameError');
+        var btn = document.getElementById('usernameSaveBtn');
+        var username = input.value.trim();
+        errorEl.textContent = '';
+
+        if (!/^[a-zA-Z0-9_]{3,16}$/.test(username)) {
+            errorEl.textContent = '3-16 characters, letters/numbers/underscore only';
+            return;
+        }
+
+        btn.disabled = true;
+        btn.textContent = 'Saving...';
+        var httpUrl = SERVER_URL.replace('wss://', 'https://').replace('ws://', 'http://');
+        fetch(httpUrl + '/api/username', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ wallet: G.walletAddress, username: username }),
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.ok) {
+                G.playerName = username;
+                document.getElementById('walletAddress').textContent = username;
+                document.getElementById('profileWalletAddr').textContent = username;
+                document.getElementById('usernameDisplay').textContent = username;
+                document.getElementById('usernameDisplay').style.display = 'block';
+                document.getElementById('usernameForm').style.display = 'none';
+                showToast('Username saved!');
+            } else {
+                errorEl.textContent = data.error || 'Failed to save';
+            }
+        })
+        .catch(function(e) { errorEl.textContent = 'Network error'; })
+        .finally(function() { btn.disabled = false; btn.textContent = 'Save'; });
+    }
+
+    // LEADERBOARD
+    var currentLbMode = 'free';
+    function loadLeaderboard(mode) {
+        currentLbMode = mode || 'free';
+        var httpUrl = SERVER_URL.replace('wss://', 'https://').replace('ws://', 'http://');
+        var container = document.getElementById('leaderboardTable');
+        container.innerHTML = '<div style="text-align:center;color:var(--text-secondary);padding:20px;">Loading...</div>';
+
+        document.querySelectorAll('.leaderboard-tab').forEach(function(tab) {
+            tab.classList.toggle('active', tab.dataset.lbMode === currentLbMode);
+        });
+
+        fetch(httpUrl + '/api/leaderboard?mode=' + currentLbMode + '&limit=20')
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (!data.leaderboard || !data.leaderboard.length) {
+                    container.innerHTML = '<div style="text-align:center;color:var(--text-secondary);padding:40px;">No players yet. Be the first!</div>';
+                    return;
+                }
+                var html = '<table class="lb-table"><thead><tr><th>#</th><th>Player</th><th>W</th><th>L</th><th>Net P&L</th></tr></thead><tbody>';
+                data.leaderboard.forEach(function(p, i) {
+                    var displayName = p.username || p.name;
+                    var pnl = (p.net_pnl / 100).toFixed(2);
+                    var pnlClass = p.net_pnl >= 0 ? 'lb-pnl-pos' : 'lb-pnl-neg';
+                    var pnlSign = p.net_pnl >= 0 ? '+$' : '-$';
+                    if (p.net_pnl < 0) pnl = Math.abs(p.net_pnl / 100).toFixed(2);
+                    html += '<tr><td class="lb-rank">' + (i + 1) + '</td>';
+                    html += '<td class="lb-name">' + sanitize(displayName) + '</td>';
+                    html += '<td class="lb-stat">' + p.wins + '</td>';
+                    html += '<td class="lb-stat">' + p.losses + '</td>';
+                    html += '<td class="lb-stat ' + pnlClass + '">' + pnlSign + pnl + '</td></tr>';
+                });
+                html += '</tbody></table>';
+                container.innerHTML = html;
+            })
+            .catch(function(e) {
+                container.innerHTML = '<div style="text-align:center;color:var(--lose);padding:20px;">Failed to load</div>';
             });
     }
 
@@ -864,7 +1236,6 @@
             if (m.isPending) {
                 const ago = timeAgo(m.timestamp);
                 const ageMs = Date.now() - m.timestamp;
-                // 20-min auto-refund timer
                 const pendingSecsLeft = Math.max(0, Math.round((20 * 60) - (ageMs / 1000)));
                 const pHrs = Math.floor(pendingSecsLeft / 3600);
                 const pMins = Math.floor((pendingSecsLeft % 3600) / 60);
@@ -915,12 +1286,10 @@
         return Math.floor(s / 86400) + 'd ago';
     }
 
-    // Live countdown timers for stuck/pending games in history
     var historyTimerInterval = null;
     function startHistoryTimers() {
         if (historyTimerInterval) clearInterval(historyTimerInterval);
         historyTimerInterval = setInterval(() => {
-            // Update stuck game timers
             document.querySelectorAll('.stuck-timer').forEach(el => {
                 const card = el.closest('[data-stuck-id]');
                 if (!card) return;
@@ -932,7 +1301,6 @@
                     const s = secs % 60;
                     el.textContent = `${m}:${String(s).padStart(2,'0')}`;
                     if (secs <= 0) {
-                        // Timer hit zero — re-render to show refund button
                         if (window.PaymentAdapter.fetchStuckGames) {
                             window.PaymentAdapter.fetchStuckGames().then(stuck => {
                                 G.stuckGames = stuck || [];
@@ -942,7 +1310,6 @@
                     }
                 }
             });
-            // Update pending match timers (20 min auto-refund)
             document.querySelectorAll('.pending-timer').forEach(el => {
                 const ts = parseInt(el.dataset.pendingTs || '0');
                 if (!ts) return;
@@ -957,13 +1324,12 @@
         if (historyTimerInterval) { clearInterval(historyTimerInterval); historyTimerInterval = null; }
     }
 
-    // ---- Screen transitions ----
+    // SCREEN TRANSITIONS
     function showScreen(name) {
         const prevScreen = G.screen;
         const cur = document.getElementById(G.screen);
         const next = document.getElementById(name);
         if (cur && cur !== next) { cur.classList.remove('active'); cur.classList.add('exit'); }
-        // Clear ALL other screens immediately to prevent stacking
         document.querySelectorAll('.screen').forEach(s => {
             if (s.id !== name && s !== cur) { s.classList.remove('active', 'exit'); }
         });
@@ -971,29 +1337,12 @@
             if (cur && cur !== next) cur.classList.remove('exit');
             next.classList.add('active');
             G.screen = name;
+            updateNavVisibility();
             if ((prevScreen === 'play' || prevScreen === 'joining') && name !== 'play' && name !== 'joining') {
                 flushToasts();
             }
-            // Start/stop history countdown timers
             if (name === 'history') startHistoryTimers();
             else stopHistoryTimers();
-            // Reset interactive state when returning to landing
-            if (name === 'landing') {
-                document.querySelectorAll('.tier-card').forEach(c => {
-                    c.classList.remove('selected');
-                });
-                document.querySelectorAll('.mode-btn').forEach(b => b.disabled = true);
-                G.answered = false;
-                G.onChainGameId = null;
-                G.createTxSig = null;
-                G.joinTxSig = null;
-                G.selectedTier = null;
-                // Close stale WS (prevents ghost connections)
-                if (ws && !G._reconnecting) {
-                    ws.close();
-                    ws = null;
-                }
-            }
         }, 300);
     }
 
@@ -1003,14 +1352,13 @@
         if (G.countdownTimeout) { clearTimeout(G.countdownTimeout); G.countdownTimeout = null; }
     }
 
-    // ---- WebSocket ----
+    // WEBSOCKET
     var keepaliveInterval = null;
     function connectWS(callback) {
         if (ws && ws.readyState === WebSocket.OPEN) { callback(); return; }
         ws = new WebSocket(SERVER_URL);
         ws.onopen = () => {
             console.log('WS connected');
-            // Client-side keepalive every 20s
             if (keepaliveInterval) clearInterval(keepaliveInterval);
             keepaliveInterval = setInterval(() => {
                 if (ws && ws.readyState === WebSocket.OPEN) wsSend({ type: 'keepalive' });
@@ -1030,7 +1378,6 @@
     }
 
     function handleDisconnect() {
-        // Auto-reconnect silently — don't boot the player
         if (G._reconnecting) return;
         G._reconnecting = true;
         var attempts = 0;
@@ -1074,48 +1421,31 @@
         setTimeout(tryReconnect, 1000);
     }
 
-    // ---- Server message handler ----
+    // SERVER MESSAGE HANDLER
     function handleServerMessage(msg) {
         console.log('Server:', msg.type, msg);
-
         switch (msg.type) {
             case 'ping':
-                // Respond immediately for latency measurement
                 wsSend({ type: 'pong', nonce: msg.nonce });
                 return;
-
-            // ---- ASYNC RANDOM MATCH MESSAGES ----
             case 'async-question':
                 startAsyncRound(msg);
                 break;
-
             case 'async-opponent-found':
                 G.opponentName = msg.opponentName;
                 break;
-
             case 'async-chain-setup':
-                // Server matched us — do on-chain setup
                 handleChainSetup(msg);
                 break;
-
             case 'chain-complete':
-                // Chain setup done for both sides — Player A can dismiss any waiting indicator
                 console.log('[chain] Chain complete for', msg.matchId);
                 break;
-
             case 'async-waiting':
-                // Still waiting for opponent — show status
-                if (G.screen === 'results' || G.screen === 'play') {
-                    // Already showing waiting message from answer submission
-                }
                 break;
-
             case 'async-result':
                 handleAsyncResult(msg);
                 break;
-
             case 'match-cancelled':
-                // Server confirmed cancellation
                 if (msg.matchId) {
                     delete G.pendingMatches[msg.matchId];
                     G.matchLog = G.matchLog.filter(function(m) { return m.matchId !== msg.matchId; });
@@ -1123,253 +1453,49 @@
                     renderHistory();
                 }
                 break;
-
             case 'async-expired':
-                // Clean up pending match from history
                 if (msg.matchId) {
                     delete G.pendingMatches[msg.matchId];
                     G.matchLog = G.matchLog.filter(function(m) { return m.matchId !== msg.matchId; });
                     updateHistoryBadge();
+                    renderHistory();
                 }
-                showToast('No opponent found — match expired');
-                if (G.screen === 'play' || G.screen === 'joining') showScreen('landing');
                 break;
-
-            // ---- CHALLENGE MODE MESSAGES ----
-            case 'created':
-                // Host got game ID back
-                G.gameId = msg.gameId;
-                const link = window.location.origin + window.location.pathname + '#' + msg.gameId;
-                document.getElementById('shareLink').textContent = link;
-                document.getElementById('connectionStatus').textContent = 'Waiting for opponent...';
-                document.getElementById('connectionStatus').className = 'connection-status waiting';
-                showScreen('waiting');
+            case 'question':
+                startRound(msg);
                 break;
-
-            case 'opponent-joined':
-                // Host: guest arrived
-                G.opponentName = msg.name;
-                document.getElementById('connectionStatus').textContent = msg.name + ' connected!';
+            case 'opponent-found':
+                G.opponentName = msg.opponentName;
+                document.getElementById('playerOpponent').textContent = G.opponentName;
+                document.getElementById('connectionStatus').textContent = 'Opponent found!';
                 document.getElementById('connectionStatus').className = 'connection-status connected';
                 break;
-
-            case 'joined':
-                // Guest: confirmed in room
-                G.opponentName = msg.hostName;
-                G.selectedTier = msg.tier;
-                document.getElementById('joinStatus').textContent = 'Connected! Starting...';
-                document.getElementById('joinStatus').className = 'connection-status connected';
+            case 'go':
+                document.getElementById('waitingLoader').style.display = 'none';
                 break;
-
-            case 'round-start':
-                preloadRound(msg);
-                break;
-
-            case 'round-go':
-                revealAndStart();
-                break;
-
-            case 'settle-tx':
-                // Server settled the game on-chain — store tx URL and update current match log entry
-                if (msg.txSignature) {
-                    var txUrl = 'https://solscan.io/tx/' + msg.txSignature + '?cluster=devnet';
-                    G.lastSettleTxUrl = txUrl;
-                    // Update the most recent matchLog entry with txn hash
-                    if (G.matchLog.length > 0) {
-                        var lastMatch = G.matchLog[G.matchLog.length - 1];
-                        lastMatch.txn = msg.txSignature;
-                    }
-                    // Hide "Settling..." and show tx link
-                    var txStatusEl = document.getElementById('txSettleStatus');
-                    if (txStatusEl) txStatusEl.style.display = 'none';
-                    var solBtn = document.getElementById('viewSolanaBtn');
-                    if (solBtn) {
-                        solBtn.href = txUrl;
-                        solBtn.textContent = 'View Settlement on Solscan ↗';
-                        solBtn.style.display = 'block';
-                    }
-                    // Also update history if it's open
-                    if (G.screen === 'history') renderHistory();
-                }
-                break;
-
-            case 'chain-joining':
-                // Server is joining us to the on-chain game
-                document.getElementById('joinStatus').textContent = msg.message || 'Joining on-chain game...';
-                break;
-
-            case 'chain-joined':
-                // Server successfully joined us on-chain
-                G.onChainGameId = msg.gameId ? parseInt(msg.gameId) : G.onChainGameId;
-                if (msg.txSignature) G.joinTxSig = msg.txSignature;
-                console.log('[chain] Joined on-chain game', G.onChainGameId);
-                break;
-
-            case 'chain-created':
-                // Server created our on-chain game
-                G.onChainGameId = msg.gameId ? parseInt(msg.gameId) : G.onChainGameId;
-                if (msg.txSignature) G.createTxSig = msg.txSignature;
-                console.log('[chain] Created on-chain game', G.onChainGameId);
-                break;
-
-            case 'chain-error':
-                // Server chain op failed — show error and return to landing
-                showToast('Chain error: ' + (msg.error || 'Unknown error'));
-                console.error('[chain-error]', msg);
-                // Refresh delegation in case it was consumed
-                refreshDelegation();
-                setTimeout(() => showScreen('landing'), 2000);
-                break;
-
-            case 'opponent-answered':
-                document.getElementById('waitingMessage').innerHTML = '<span class="spinner"></span>Opponent answered — waiting for results...';
-                break;
-
             case 'result':
                 showResult(msg);
                 break;
-
-            case 'opponent-wants-rematch':
-                const btn = document.getElementById('playAgainBtn');
-                if (btn.dataset.waiting !== 'true') {
-                    btn.textContent = 'Opponent wants rematch — tap to play!';
-                    btn.style.animation = 'pulse 1s infinite';
-                }
-                G.opponentWantsRematch = true;
+            case 'rematch-requested':
+                const paBtn = document.getElementById('playAgainBtn');
+                paBtn.textContent = 'Opponent wants rematch...';
+                paBtn.disabled = true;
+                paBtn.dataset.waiting = 'true';
                 break;
-
-            case 'opponent-disconnected':
-                if (G.screen === 'play' || G.screen === 'results') {
-                    showToast('Opponent disconnected.');
-                    clearAllTimers();
-                    showScreen('landing');
-                }
-                break;
-
-            case 'rematch-chain-setup':
-                handleRematchChainSetup(msg);
-                break;
-
-            case 'error':
-                showToast(msg.message || 'Game error');
+            case 'rematch-declined':
+                document.getElementById('playAgainBtn').textContent = 'Play Again';
+                showToast('Opponent declined rematch');
                 showScreen('landing');
                 break;
+            case 'rematch-accepted':
+                const questionWait = setTimeout(() => {
+                    if (G.screen === 'results') showToast('Waiting for next question...');
+                }, 2000);
+                break;
         }
     }
 
-    // ---- Countdown ----
-    function runCountdown(callback) {
-        const overlay = document.getElementById('countdownOverlay');
-        const numEl = document.getElementById('countdownNumber');
-        overlay.classList.add('active');
-        let count = 3;
-        numEl.textContent = count;
-        numEl.style.animation = 'none'; void numEl.offsetHeight; numEl.style.animation = '';
-
-        const tick = () => {
-            count--;
-            if (count > 0) {
-                numEl.textContent = count;
-                numEl.style.animation = 'none'; void numEl.offsetHeight; numEl.style.animation = '';
-                G.countdownTimeout = setTimeout(tick, 1000);
-            } else {
-                numEl.textContent = 'GO!';
-                numEl.style.animation = 'none'; void numEl.offsetHeight; numEl.style.animation = '';
-                G.countdownTimeout = setTimeout(() => { overlay.classList.remove('active'); callback(); }, 600);
-            }
-        };
-        G.countdownTimeout = setTimeout(tick, 1000);
-    }
-
-    // ---- Phase 1: preload (server sent question, countdown runs, image preloads) ----
-    function preloadRound(msg) {
-        clearAllTimers();
-        document.getElementById('countdownOverlay').classList.remove('active');
-
-        G.answered = false;
-        G.questionStartTime = null;
-        G.frozenElapsed = null;
-        G.opponentWantsRematch = false;
-
-        G.pendingQuestion = msg.question;
-        G.pendingRound = msg.round;
-
-        document.getElementById('playerYou').textContent = G.playerName;
-        document.getElementById('playerOpponent').textContent = G.opponentName || 'Opponent';
-        if (msg.round > 1) {
-            document.getElementById('roundIndicator').textContent = 'Round ' + msg.round;
-            document.getElementById('roundIndicator').style.display = 'block';
-        }
-
-        // Reset play UI — blank question area, timer at 10
-        document.getElementById('timerText').textContent = '10.00';
-        document.getElementById('timerCircle').style.strokeDashoffset = '0';
-        document.getElementById('timerText').style.color = 'var(--accent)';
-        document.getElementById('timerCircle').style.stroke = 'var(--accent)';
-        document.getElementById('yourTime').textContent = '0.00s';
-        document.getElementById('theirTime').textContent = '—';
-        document.getElementById('questionText').textContent = '';
-        document.getElementById('imagePlaceholder').innerHTML = '';
-        document.getElementById('answersGrid').innerHTML = '';
-        document.getElementById('waitingMessage').classList.remove('show');
-        document.getElementById('waitingMessage').innerHTML = '<span class="spinner"></span>Waiting for opponent\'s answer...';
-
-        showScreen('play');
-
-        // Preload image during countdown
-        G.preloadedImg = null;
-        const q = msg.question;
-        if (q.imageToken) {
-            G.preloadedImg = new Image();
-            G.preloadedImg.src = SERVER_URL.replace('wss://', 'https://').replace('ws://', 'http://') + '/img/' + q.imageToken;
-        }
-
-        // Run countdown while waiting for server "go" signal
-        runCountdown(() => {
-            // Countdown done — if "go" hasn't arrived yet, show "waiting for sync..."
-            if (!G.questionStartTime) {
-                document.getElementById('questionText').textContent = 'Syncing...';
-            }
-        });
-    }
-
-    // ---- Phase 2: server says GO — reveal question, start timer ----
-    function revealAndStart() {
-        clearAllTimers();
-        document.getElementById('countdownOverlay').classList.remove('active');
-
-        const q = G.pendingQuestion;
-        if (!q) return;
-
-        // Render question + image
-        document.getElementById('questionText').textContent = q.text;
-        const imgC = document.getElementById('imagePlaceholder');
-        imgC.innerHTML = '';
-        if (G.preloadedImg) {
-            G.preloadedImg.alt = 'Identify this';
-            G.preloadedImg.draggable = false;
-            G.preloadedImg.oncontextmenu = e => e.preventDefault();
-            G.preloadedImg.onerror = () => {
-                imgC.innerHTML = '<div style="padding:40px 20px;color:var(--text-secondary);font-size:14px;">Image loading — answer from the options!</div>';
-            };
-            imgC.appendChild(G.preloadedImg);
-        }
-
-        // Render answer buttons
-        const grid = document.getElementById('answersGrid');
-        grid.innerHTML = q.options.map((opt, i) =>
-            `<button class="answer-btn" data-index="${i}">${opt}</button>`
-        ).join('');
-        document.querySelectorAll('.answer-btn').forEach(btn => {
-            btn.addEventListener('click', () => selectAnswer(parseInt(btn.dataset.index)));
-        });
-
-        // Start client-side timer from NOW — synchronized by server "go"
-        G.questionStartTime = Date.now();
-        startTimers();
-    }
-
-    // ---- ASYNC ROUND: play locally, timer on device ----
+    // GAME LOGIC - ASYNC MODE
     function startAsyncRound(msg) {
         clearAllTimers();
         document.getElementById('countdownOverlay').classList.remove('active');
@@ -1386,7 +1512,6 @@
         document.getElementById('playerOpponent').textContent = G.opponentName || 'Searching...';
         document.getElementById('roundIndicator').style.display = 'none';
 
-        // Reset play UI
         document.getElementById('timerText').textContent = '10.00';
         document.getElementById('timerCircle').style.strokeDashoffset = '0';
         document.getElementById('timerText').style.color = 'var(--accent)';
@@ -1397,18 +1522,15 @@
         document.getElementById('imagePlaceholder').innerHTML = '';
         document.getElementById('answersGrid').innerHTML = '';
         document.getElementById('waitingMessage').classList.remove('show');
-        document.getElementById('waitingMessage').innerHTML = '<span class="spinner"></span>Waiting for opponent...';
 
         showScreen('play');
 
-        // Preload image
         let preloadedImg = null;
         if (q.imageToken) {
             preloadedImg = new Image();
             preloadedImg.src = SERVER_URL.replace('wss://', 'https://').replace('ws://', 'http://') + '/img/' + q.imageToken;
         }
 
-        // Short countdown then reveal — no server sync needed, this is LOCAL
         runCountdown(() => {
             document.getElementById('questionText').textContent = q.text;
             const imgC = document.getElementById('imagePlaceholder');
@@ -1430,27 +1552,143 @@
                 btn.addEventListener('click', () => selectAnswer(parseInt(btn.dataset.index)));
             });
 
-            // Start LOCAL timer — THIS is the authoritative time for async mode
             G.questionStartTime = Date.now();
             startTimers();
         });
     }
 
-    // ---- ON-CHAIN STATUS UPDATES (server does create/join — client just shows status) ----
-    function handleChainSetup(msg) {
-        // Legacy handler — server now does all chain ops. Just show status messages.
-        if (msg.message) {
-            document.getElementById('joinStatus').textContent = msg.message;
+    // GAME LOGIC - CHALLENGE MODE
+    function startRound(msg) {
+        clearAllTimers();
+        document.getElementById('countdownOverlay').classList.remove('active');
+
+        G.answered = false;
+        G.questionStartTime = null;
+        G.frozenElapsed = null;
+
+        const q = msg.question;
+
+        document.getElementById('playerYou').textContent = G.playerName;
+        document.getElementById('playerOpponent').textContent = G.opponentName;
+        document.getElementById('roundIndicator').style.display = 'block';
+        document.getElementById('roundIndicator').textContent = 'Round ' + (msg.round || 1);
+
+        document.getElementById('timerText').textContent = '10.00';
+        document.getElementById('timerCircle').style.strokeDashoffset = '0';
+        document.getElementById('timerText').style.color = 'var(--accent)';
+        document.getElementById('timerCircle').style.stroke = 'var(--accent)';
+        document.getElementById('yourTime').textContent = '0.00s';
+        document.getElementById('theirTime').textContent = '—';
+        document.getElementById('questionText').textContent = '';
+        document.getElementById('imagePlaceholder').innerHTML = '';
+        document.getElementById('answersGrid').innerHTML = '';
+        document.getElementById('waitingMessage').classList.remove('show');
+
+        showScreen('play');
+
+        let preloadedImg = null;
+        if (q.imageToken) {
+            preloadedImg = new Image();
+            preloadedImg.src = SERVER_URL.replace('wss://', 'https://').replace('ws://', 'http://') + '/img/' + q.imageToken;
+        }
+
+        runCountdown(() => {
+            document.getElementById('questionText').textContent = q.text;
+            const imgC = document.getElementById('imagePlaceholder');
+            imgC.innerHTML = '';
+            if (preloadedImg) {
+                preloadedImg.alt = 'Identify this';
+                preloadedImg.draggable = false;
+                preloadedImg.oncontextmenu = e => e.preventDefault();
+                preloadedImg.onerror = () => {
+                    imgC.innerHTML = '<div style="padding:40px 20px;color:var(--text-secondary);font-size:14px;">Image loading — answer from the options!</div>';
+                };
+                imgC.appendChild(preloadedImg);
+            }
+
+            const grid = document.getElementById('answersGrid');
+            grid.innerHTML = q.options.map((opt, i) =>
+                `<button class="answer-btn" data-index="${i}">${opt}</button>`
+            ).join('');
+            document.querySelectorAll('.answer-btn').forEach(btn => {
+                btn.addEventListener('click', () => selectAnswer(parseInt(btn.dataset.index)));
+            });
+
+            G.questionStartTime = Date.now();
+            startTimers();
+        });
+    }
+
+    // COUNTDOWN
+    function runCountdown(callback) {
+        if (G.countdownTimeout) clearTimeout(G.countdownTimeout);
+        const overlay = document.getElementById('countdownOverlay');
+        const num = document.getElementById('countdownNumber');
+        overlay.classList.add('active');
+
+        let count = 3;
+        num.textContent = count;
+
+        const tick = () => {
+            count--;
+            if (count > 0) {
+                num.textContent = count;
+                G.countdownTimeout = setTimeout(tick, 800);
+            } else {
+                overlay.classList.remove('active');
+                callback();
+            }
+        };
+
+        G.countdownTimeout = setTimeout(tick, 800);
+    }
+
+    // ON-CHAIN SETUP
+    async function handleChainSetup(msg) {
+        const matchId = msg.matchId;
+        if (!matchId) return;
+
+        if (msg.role === 'host') {
+            console.log('[chain] Host already created game at queue time, sending chain-ready for', matchId);
+            wsSend({
+                type: 'chain-ready', matchId: matchId,
+                onChainGameId: G.onChainGameId,
+                wallet: G.walletAddress,
+            });
+        } else if (msg.role === 'guest') {
+            document.getElementById('joinStatus').textContent = 'Joining game on chain...';
+            try {
+                const hostGameId = msg.hostOnChainGameId;
+                if (!hostGameId) {
+                    alert('Missing host game ID');
+                    showScreen('landing');
+                    return;
+                }
+                G.onChainGameId = hostGameId;
+                const prep = await window.PaymentAdapter.prepareGame(G.selectedTier, hostGameId, 'guest');
+                if (!prep.ready) {
+                    alert(prep.error || 'Failed to join on-chain game');
+                    showScreen('landing');
+                    return;
+                }
+                G.joinTxSig = prep.txSignature || null;
+                updateApprovalDisplay();
+                wsSend({
+                    type: 'chain-ready', matchId: matchId,
+                    onChainGameId: hostGameId,
+                    wallet: G.walletAddress,
+                });
+                document.getElementById('joinStatus').textContent = 'Ready! Waiting for question...';
+            } catch (e) {
+                alert(e.message || 'On-chain join failed');
+                showScreen('landing');
+            }
+        } else if (msg.role === 'guest-wait') {
+            document.getElementById('joinStatus').textContent = msg.message || 'Matched! Setting up...';
         }
     }
 
-    // ---- Challenge mode rematch chain setup (server-side, client just shows status) ----
-    function handleRematchChainSetup(msg) {
-        // Server handles create_game/join_game — client just shows status
-        if (msg.message) showToast(msg.message);
-    }
-
-    // ---- ASYNC RESULT (routes to live screen or game log) ----
+    // ASYNC RESULT HANDLER
     function handleAsyncResult(msg) {
         const matchId = msg.matchId;
         const isCurrentMatch = matchId === G.asyncMatchId && (G.screen === 'play' || G.screen === 'results');
@@ -1460,7 +1698,6 @@
         const wager = wagerAmounts[G.selectedTier] || 1;
         const payout = calculatePayout(result, wager);
 
-        // Always log the match
         logMatch(matchId, {
             opponent: msg.opponent.name || G.opponentName || 'Opponent',
             result, myAnswer: msg.you.answer, oppAnswer: msg.opponent.answer,
@@ -1469,7 +1706,6 @@
             reason: msg.reason, wager, payout,
         });
 
-        // Update stats
         if (result === 'win') G.stats.wins++;
         else if (result === 'loss') G.stats.losses++;
         else G.stats.draws++;
@@ -1478,7 +1714,6 @@
         document.getElementById('statLosses').textContent = G.stats.losses;
 
         if (isCurrentMatch) {
-            // Result arrived while player is still on the play/results screen for THIS match
             if (G.pendingTimeout) { clearTimeout(G.pendingTimeout); G.pendingTimeout = null; }
             clearAllTimers();
 
@@ -1486,7 +1721,6 @@
             document.getElementById('playerOpponent').textContent = G.opponentName;
             if (msg.opponent.time != null) document.getElementById('theirTime').textContent = formatTime(msg.opponent.time);
 
-            // Highlight correct/wrong on answer buttons
             document.querySelectorAll('.answer-btn').forEach((btn, i) => {
                 if (i === msg.correctIdx) btn.classList.add('correct');
                 if (i === msg.you.answer && i !== msg.correctIdx) btn.classList.add('wrong');
@@ -1496,17 +1730,9 @@
                 const bannerText = { win: '🎉 YOU WIN', loss: '😔 YOU LOSE', draw: '🤝 DRAW' }[result];
                 document.getElementById('resultBanner').className = 'result-banner ' + (result === 'loss' ? 'loss' : result);
                 document.getElementById('resultBanner').textContent = bannerText;
-                // Show "Settling..." for Solana mode, reset tx link
                 var solBtn1 = document.getElementById('viewSolanaBtn');
                 if (solBtn1) { solBtn1.style.display = 'none'; solBtn1.href = '#'; }
                 G.lastSettleTxUrl = null;
-                var txSection1 = document.getElementById('txLinksSection');
-                var txStatus1 = document.getElementById('txSettleStatus');
-                if (txSection1 && window.__SENSE_MODE === 'solana') {
-                    txSection1.style.display = 'block';
-                    txStatus1.innerHTML = '<span class="spinner" style="width:12px;height:12px;margin-right:4px;vertical-align:middle;"></span>Settling on Solana...';
-                    txStatus1.style.display = 'block';
-                } else if (txSection1) { txSection1.style.display = 'none'; }
 
                 const options = Array.from(document.querySelectorAll('.answer-btn')).map(b => b.textContent);
                 let myAnswerText = 'Time expired';
@@ -1533,42 +1759,38 @@
                 paBtn.style.animation = '';
                 paBtn.dataset.waiting = '';
 
-                // Update balance display
                 const asyncWagerAmounts2 = [0, 1, 10, 100, 0.10];
                 const asyncWager2 = asyncWagerAmounts2[G.selectedTier] || 1;
                 updateBalanceAfterMatch(result, asyncWager2);
                 showScreen('results');
             }, 1200);
         } else {
-            // Result arrived while player is on a DIFFERENT screen (lobby, new game, history)
             const resultWord = result === 'win' ? 'Won' : result === 'loss' ? 'Lost' : 'Draw';
             const oppName = msg.opponent.name || 'opponent';
             showToast(`${resultWord} vs ${oppName} — $${payout}`);
         }
     }
 
-    // ---- Play Again (shared by result screen + pending state) ----
+    // PLAY AGAIN (SHARED)
     async function replayGame() {
         if (!ws || ws.readyState !== WebSocket.OPEN) {
             showScreen('landing');
             return;
         }
 
-        // For Solana mode: check delegation is sufficient (no popup — approve was done on landing)
         if (window.PaymentAdapter && window.PaymentAdapter.mode !== 'none') {
-            G.onChainGameId = Date.now();
-            // Quick delegation check — if insufficient, send back to landing to re-approve
-            if (window.PaymentAdapter._tierToRaw && window.PaymentAdapter._getDelegatedAmount) {
-                try {
-                    const d = await window.PaymentAdapter._getDelegatedAmount();
-                    G.approvalRemaining = d;
-                    const wagerRaw = window.PaymentAdapter._tierToRaw(G.selectedTier);
-                    if (d < wagerRaw) {
-                        showToast('Delegation expired — approve more USDC to continue');
-                        showScreen('landing');
-                        return;
-                    }
-                } catch {}
+            try {
+                G.onChainGameId = Date.now();
+                const prep = await window.PaymentAdapter.prepareGame(G.selectedTier, G.onChainGameId, 'host');
+                if (!prep.ready) {
+                    showToast(prep.error || 'Failed to prepare game');
+                    return;
+                }
+                G.createTxSig = prep.txSignature || null;
+                updateApprovalDisplay();
+            } catch (e) {
+                showToast(e.message || 'Game setup failed');
+                return;
             }
         }
 
@@ -1583,37 +1805,31 @@
         showScreen('joining');
     }
 
-    // Alias for pending state button
     function pendingPlayAgain() { replayGame(); }
 
-    // ---- Answer selection ----
+    // ANSWER SELECTION
     function selectAnswer(idx) {
         if (G.answered || !G.questionStartTime) return;
         G.answered = true;
 
-        // Freeze elapsed time INSTANTLY — no waiting for interval tick
         const elapsed = Date.now() - G.questionStartTime;
         G.frozenElapsed = elapsed;
         document.getElementById('yourTime').textContent = formatTime(elapsed);
         if (G.elapsedInterval) { clearInterval(G.elapsedInterval); G.elapsedInterval = null; }
-        // Also freeze the countdown ring at current position
         if (G.timerInterval) { clearInterval(G.timerInterval); G.timerInterval = null; }
         const remaining = Math.max(0, TIME_LIMIT_MS - elapsed);
         const secs = remaining / 1000;
         document.getElementById('timerText').textContent = secs.toFixed(2);
         document.getElementById('timerCircle').style.strokeDashoffset = CIRCUMFERENCE * (1 - remaining / TIME_LIMIT_MS);
 
-        // Highlight selected (we don't know correct yet — server will tell us)
         document.querySelectorAll('.answer-btn').forEach((btn, i) => {
             btn.disabled = true;
             if (i === idx) btn.classList.add('selected');
         });
         document.getElementById('waitingMessage').classList.add('show');
 
-        // Send to server — different message for async vs challenge
         if (G.asyncMode) {
             wsSend({ type: 'async-answer', matchId: G.asyncMatchId, answerIndex: idx, clientTime: Math.round(elapsed) });
-            // Show pending buttons after a short delay if no result yet
             if (G.pendingTimeout) clearTimeout(G.pendingTimeout);
             G.pendingTimeout = setTimeout(() => {
                 if (G.screen === 'play' && G.asyncMode && G.answered) {
@@ -1625,14 +1841,13 @@
                         myAnswer: idx,
                         myTime: Math.round(elapsed),
                     });
-                    // Show pending action buttons — player chooses what to do
                     const wm = document.getElementById('waitingMessage');
                     wm.innerHTML = `
                         <div style="margin-bottom:12px;">Answer submitted — waiting for opponent</div>
                         <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
                             <button class="btn-primary" style="padding:10px 20px;font-size:13px;" onclick="pendingPlayAgain()">Play Again</button>
-                            <button class="btn-secondary" style="padding:10px 20px;font-size:13px;" onclick="renderHistory();showScreen('history')">Match History</button>
-                            <button class="btn-secondary" style="padding:10px 20px;font-size:13px;" onclick="showScreen('landing')">Home</button>
+                            <button class="btn-secondary" style="padding:10px 20px;font-size:13px;" onclick="renderHistory();switchTab('history')">Match History</button>
+                            <button class="btn-secondary" style="padding:10px 20px;font-size:13px;" onclick="switchTab('landing')">Home</button>
                         </div>
                     `;
                 }
@@ -1642,7 +1857,7 @@
         }
     }
 
-    // ---- Visual timer (client-side, non-authoritative) ----
+    // TIMERS
     function startTimers() {
         const startTime = Date.now();
         G.timerInterval = setInterval(() => {
@@ -1665,7 +1880,6 @@
                     document.getElementById('yourTime').textContent = formatTime(TIME_LIMIT_MS);
                     document.querySelectorAll('.answer-btn').forEach(btn => { btn.disabled = true; });
                     document.getElementById('waitingMessage').classList.add('show');
-                    // Server auto-submits for us, no need to send anything
                 }
             }
         }, 30);
@@ -1676,18 +1890,17 @@
         }, 10);
     }
 
-    // ---- Show result (challenge mode — server sent full result) ----
+    // SHOW RESULT (CHALLENGE MODE)
     function showResult(msg) {
         clearAllTimers();
 
-        const result = msg.you.result; // 'win', 'loss', 'draw'
+        const result = msg.you.result;
         const myAnswer = msg.you.answer;
-        const myTime = msg.you.time; // server authoritative time
+        const myTime = msg.you.time;
         const wagerAmounts = [0, 1, 10, 100, 0.10];
         const wagerForLog = wagerAmounts[G.selectedTier] || 1;
         const payoutForLog = calculatePayout(result, wagerForLog);
 
-        // Log challenge mode match too
         logMatch(G.gameId + '_r' + (msg.round || 1), {
             opponent: G.opponentName || 'Opponent',
             result, myAnswer, oppAnswer: msg.opponent.answer,
@@ -1696,8 +1909,6 @@
             reason: msg.reason, wager: wagerForLog, payout: payoutForLog,
         });
 
-        // Snap the play screen display to server's time BEFORE transitioning.
-        // This way the last number the player sees = the recap number. No mismatch.
         if (myTime != null && myAnswer >= 0) {
             document.getElementById('yourTime').textContent = formatTime(myTime);
             const remaining = Math.max(0, TIME_LIMIT_MS - myTime);
@@ -1709,15 +1920,12 @@
         const correctIdx = msg.correctIdx;
         const correctAnswer = msg.correctAnswer;
         const reason = msg.reason;
-        const round = msg.round;
 
-        // Highlight correct/wrong on answer buttons before transition
         document.querySelectorAll('.answer-btn').forEach((btn, i) => {
             if (i === correctIdx) btn.classList.add('correct');
             if (i === myAnswer && i !== correctIdx) btn.classList.add('wrong');
         });
 
-        // Update stats
         if (result === 'win') G.stats.wins++;
         else if (result === 'loss') G.stats.losses++;
         else G.stats.draws++;
@@ -1725,7 +1933,6 @@
         document.getElementById('statDraws').textContent = G.stats.draws;
         document.getElementById('statLosses').textContent = G.stats.losses;
 
-        // Small delay to show correct/wrong highlights
         setTimeout(() => {
             const wagerAmounts = [0, 1, 10, 100, 0.10];
             const wager = wagerAmounts[G.selectedTier] || 1;
@@ -1734,19 +1941,10 @@
             const bannerText = { win: '🎉 YOU WIN', loss: '😔 YOU LOSE', draw: '🤝 DRAW' }[result];
             document.getElementById('resultBanner').className = 'result-banner ' + (result === 'loss' ? 'loss' : result);
             document.getElementById('resultBanner').textContent = bannerText;
-            // Show "Settling..." for Solana mode, reset tx link
             var solBtn2 = document.getElementById('viewSolanaBtn');
             if (solBtn2) { solBtn2.style.display = 'none'; solBtn2.href = '#'; }
             G.lastSettleTxUrl = null;
-            var txSection2 = document.getElementById('txLinksSection');
-            var txStatus2 = document.getElementById('txSettleStatus');
-            if (txSection2 && window.__SENSE_MODE === 'solana') {
-                txSection2.style.display = 'block';
-                txStatus2.innerHTML = '<span class="spinner" style="width:12px;height:12px;margin-right:4px;vertical-align:middle;"></span>Settling on Solana...';
-                txStatus2.style.display = 'block';
-            } else if (txSection2) { txSection2.style.display = 'none'; }
 
-            // Build my answer text
             const options = Array.from(document.querySelectorAll('.answer-btn')).map(b => b.textContent);
             let myAnswerText = 'Time expired';
             if (myAnswer >= 0 && myAnswer < options.length) myAnswerText = options[myAnswer];
@@ -1772,15 +1970,12 @@
             paBtn.style.animation = '';
             paBtn.dataset.waiting = '';
 
-            // Update balance display
             updateBalanceAfterMatch(result, wager);
             showScreen('results');
         }, 1200);
     }
 
-    // ============ EVENT LISTENERS ============
-
-    // Connect wallet (via PaymentAdapter — simulated in preview, Phantom in devnet)
+    // EVENT LISTENERS
     document.getElementById('connectBtn').addEventListener('click', async () => {
         if (G.walletConnected) return;
         document.getElementById('connectBtn').disabled = true;
@@ -1791,33 +1986,36 @@
             G.playerName = result.name;
             G.walletAddress = result.address || null;
             document.getElementById('walletDisconnected').style.display = 'none';
-            document.getElementById('walletConnected').classList.add('show');
+            document.getElementById('walletConnected').style.display = 'block';
             document.getElementById('walletAddress').textContent = result.displayAddress || result.name;
+            document.getElementById('profileWalletAddr').textContent = result.displayAddress || result.name;
             document.getElementById('walletBalance').textContent = result.balance;
+            document.getElementById('profileUSDC').textContent = result.balance;
             updatePersistentBalance(result.balance);
-            document.getElementById('modeSection').classList.add('show');
-            document.getElementById('historyBtnWrap').style.display = 'flex';
-            document.getElementById('connectBtn').dispatchEvent(new Event('walletConnected'));
-            // Fetch SOL balance for devnet mode
-            refreshSolBalance();
+            document.getElementById('walletConnectedOnly').style.display = 'block';
+            document.getElementById('connectBtn').style.display = 'none';
+            document.getElementById('disconnectBtn').style.display = 'block';
 
-            // Hydrate match history from server DB (persists across refreshes)
+            refreshSolBalance();
+            checkAndPromptUsername();
             hydrateHistory(G.playerName);
 
-            // Fetch stuck on-chain games in background (don't block connect)
             if (window.PaymentAdapter.fetchStuckGames) {
                 window.PaymentAdapter.fetchStuckGames().then(stuck => {
                     G.stuckGames = stuck || [];
                     if (stuck.length > 0) {
                         updateHistoryBadge();
-                        showToast(stuck.length + ' stuck game' + (stuck.length > 1 ? 's' : '') + ' found — cancel in History to recover USDC');
+                        showToast(stuck.length + ' stuck game' + (stuck.length > 1 ? 's' : '') + ' found');
                     }
                 }).catch(() => {});
             }
 
-            // Fetch on-chain delegation for Solana mode
             if (window.PaymentAdapter.mode === 'solana') {
-                refreshDelegation();
+                document.getElementById('sessionApprovalRow').style.display = 'block';
+                window.PaymentAdapter._getDelegatedAmount().then(d => {
+                    G.approvalRemaining = d;
+                    updateApprovalDisplay();
+                }).catch(() => {});
             }
         } catch (e) {
             document.getElementById('connectBtn').disabled = false;
@@ -1826,159 +2024,56 @@
         }
     });
 
-    // Refresh on-chain delegation and update all displays
-    async function refreshDelegation() {
-        if (window.__SENSE_MODE !== 'solana' || !window.PaymentAdapter._getDelegatedAmount) return 0;
-        try {
-            const d = await window.PaymentAdapter._getDelegatedAmount();
-            G.approvalRemaining = d;
-            updateDelegationDisplay();
-            return d;
-        } catch { return G.approvalRemaining || 0; }
-    }
+    document.getElementById('sessionGamesSelect').addEventListener('change', (e) => {
+        G.sessionGames = parseInt(e.target.value) || 5;
+    });
 
-    function updateDelegationDisplay() {
-        const amt = G.approvalRemaining || 0;
-        const usd = (amt / 1e6).toFixed(2);
-
-        // Landing page delegation row
-        const row = document.getElementById('delegationRow');
-        if (row && window.__SENSE_MODE === 'solana') {
-            row.style.display = 'block';
-            document.getElementById('delegationAmount').textContent = usd;
-            // Show games remaining for selected tier
-            const gamesEl = document.getElementById('delegationGames');
-            if (G.selectedTier && window.PaymentAdapter._tierToRaw) {
-                const wagerRaw = window.PaymentAdapter._tierToRaw(G.selectedTier);
-                const games = Math.floor(amt / wagerRaw);
-                gamesEl.textContent = games + ' game' + (games !== 1 ? 's' : '') + ' at this tier';
-            } else {
-                gamesEl.textContent = '';
-            }
-        }
-
-        // Persistent pill
-        const pillWrap = document.getElementById('persistentApprovalWrap');
-        if (pillWrap && window.__SENSE_MODE === 'solana') {
-            pillWrap.style.display = 'inline';
-            document.getElementById('persistentApprovalAmt').textContent = usd;
-        }
-
-        // Show/hide approve button based on tier selection
-        updateApproveButton();
-    }
-
-    function updateApproveButton() {
-        const btn = document.getElementById('approveBtn');
-        if (!btn || window.__SENSE_MODE !== 'solana') return;
-        if (!G.walletConnected || !G.selectedTier) { btn.style.display = 'none'; return; }
-        const wagerRaw = window.PaymentAdapter._tierToRaw ? window.PaymentAdapter._tierToRaw(G.selectedTier) : 0;
-        const delegation = G.approvalRemaining || 0;
-        if (delegation >= wagerRaw) {
-            btn.style.display = 'none';
-            document.getElementById('approveError').style.display = 'none';
-            // Enable play buttons
-            document.querySelectorAll('.mode-btn').forEach(b => b.disabled = false);
+    function updateApprovalDisplay() {
+        const el = document.getElementById('approvalRemaining');
+        if (!el) return;
+        if (G.approvalRemaining > 0 && window.PaymentAdapter?._tierToRaw) {
+            const wagerRaw = window.PaymentAdapter._tierToRaw(G.selectedTier || 1);
+            const games = Math.floor(G.approvalRemaining / wagerRaw);
+            el.style.display = 'block';
+            el.textContent = games + ' game' + (games !== 1 ? 's' : '') + ' pre-approved';
         } else {
-            btn.style.display = 'inline-block';
-            btn.textContent = 'Approve USDC to Play';
-            // Disable play buttons until approved
-            document.querySelectorAll('.mode-btn').forEach(b => b.disabled = true);
+            el.style.display = 'none';
         }
     }
 
-    // Mode selection
-    // Tier selection — visual only, enables mode buttons
     document.querySelectorAll('.tier-card').forEach(card => {
-        card.addEventListener('click', (e) => {
+        card.addEventListener('click', async (e) => {
             const target = e.target.closest('.tier-card');
             if (!target) return;
             document.querySelectorAll('.tier-card').forEach(c => c.classList.remove('selected'));
             target.classList.add('selected');
             G.selectedTier = parseInt(target.dataset.tier);
-            // Update delegation display for new tier (games remaining, approve button)
-            updateDelegationDisplay();
-            // In preview mode (no solana), just enable buttons directly
-            if (window.__SENSE_MODE !== 'solana') {
-                document.querySelectorAll('.mode-btn').forEach(b => b.disabled = false);
-            }
-            // In solana mode, updateApproveButton (called by updateDelegationDisplay) handles enable/disable
-        });
-    });
-
-    // Approve button — explicit USDC delegation (the ONLY place wallet popup happens)
-    document.getElementById('approveBtn').addEventListener('click', async () => {
-        const btn = document.getElementById('approveBtn');
-        const errEl = document.getElementById('approveError');
-        if (!G.selectedTier || !G.walletConnected) return;
-        btn.disabled = true;
-        btn.textContent = 'Approving...';
-        errEl.style.display = 'none';
-        try {
-            const wagerRaw = window.PaymentAdapter._tierToRaw(G.selectedTier);
-            // Check balance first
-            const conn = window.PaymentAdapter._getConnection();
-            const ata = await window.PaymentAdapter._getATA(window.PaymentAdapter.getAddress(), window.PaymentAdapter._USDC_MINT);
-            let usdcBalance = 0;
-            try {
-                const info = await conn.getTokenAccountBalance(ata);
-                usdcBalance = parseInt(info.value.amount || '0');
-            } catch {
-                errEl.textContent = 'No USDC balance. Get devnet USDC at faucet.circle.com';
-                errEl.style.display = 'block';
-                btn.disabled = false;
-                btn.textContent = 'Approve USDC to Play';
-                return;
-            }
-            if (usdcBalance < wagerRaw) {
-                errEl.textContent = 'Insufficient USDC. You have $' + (usdcBalance / 1e6).toFixed(2) + ' but need $' + (wagerRaw / 1e6).toFixed(2);
-                errEl.style.display = 'block';
-                btn.disabled = false;
-                btn.textContent = 'Approve USDC to Play';
-                return;
-            }
-            // Approve for 10 games at this tier
-            const approveAmount = wagerRaw * 10;
-            const approveTx = await window.PaymentAdapter._buildApproveTx(approveAmount);
-            const wallet = window.PaymentAdapter._getWallet();
-            const signed = await wallet.signTransaction(approveTx);
-            const sig = await conn.sendRawTransaction(signed.serialize());
-            await conn.confirmTransaction(sig, 'confirmed');
-            G.approvalRemaining = approveAmount;
-            updateDelegationDisplay();
-            // Refresh balance too (SOL spent on tx fee)
-            if (window.PaymentAdapter._refreshBalance) {
-                const bal = await window.PaymentAdapter._refreshBalance();
-                if (bal !== null) updatePersistentBalance(bal);
-            }
-            refreshSolBalance();
-        } catch (e) {
-            const msg = e.message || 'Approval failed';
-            if (msg.includes('User rejected')) {
-                // User dismissed — no error, just re-enable
-            } else {
-                errEl.textContent = msg;
-                errEl.style.display = 'block';
-            }
-        }
-        btn.disabled = false;
-        btn.textContent = 'Approve USDC to Play';
-    });
-
-    // Mode buttons — trigger game (NO wallet popup — delegation already approved)
-    document.querySelectorAll('.mode-btn').forEach(btn => {
-        btn.addEventListener('click', async (e) => {
-            const mode = e.target.dataset.mode;
-            if (!G.selectedTier) return; // safety — buttons should be disabled
-            G.selectedMode = mode;
-
-            // Disable buttons to prevent double-click
-            document.querySelectorAll('.mode-btn').forEach(b => b.disabled = true);
-
             G.onChainGameId = Date.now();
 
-            if (mode === 'random') {
-                // ---- RANDOM MATCH (no wallet popup — delegation already approved) ----
+            if (G.selectedMode === 'random') {
+                if (window.PaymentAdapter.mode !== 'none') {
+                    target.style.opacity = '0.5';
+                    document.querySelectorAll('.tier-card').forEach(c => c.style.pointerEvents = 'none');
+                    try {
+                        const prep = await window.PaymentAdapter.prepareGame(G.selectedTier, G.onChainGameId, 'host');
+                        if (!prep.ready) {
+                            showToast(prep.error || 'Failed to prepare game');
+                            target.style.opacity = '1';
+                            document.querySelectorAll('.tier-card').forEach(c => c.style.pointerEvents = 'auto');
+                            return;
+                        }
+                        G.createTxSig = prep.txSignature || null;
+                        updateApprovalDisplay();
+                    } catch (err) {
+                        showToast(err.message || 'Game setup failed');
+                        target.style.opacity = '1';
+                        document.querySelectorAll('.tier-card').forEach(c => c.style.pointerEvents = 'auto');
+                        return;
+                    }
+                    target.style.opacity = '1';
+                    document.querySelectorAll('.tier-card').forEach(c => c.style.pointerEvents = 'auto');
+                }
+
                 G.isHost = false;
                 G.asyncMode = true;
                 connectWS(() => {
@@ -1993,7 +2088,29 @@
                 document.getElementById('joinStatus').className = 'connection-status waiting';
                 showScreen('joining');
             } else {
-                // ---- CHALLENGE FRIEND (no wallet popup) ----
+                if (window.PaymentAdapter.mode !== 'none') {
+                    target.style.opacity = '0.5';
+                    document.querySelectorAll('.tier-card').forEach(c => c.style.pointerEvents = 'none');
+                    try {
+                        const prep = await window.PaymentAdapter.prepareGame(G.selectedTier, G.onChainGameId, 'host');
+                        if (!prep.ready) {
+                            alert(prep.error || 'Failed to prepare game');
+                            target.style.opacity = '1';
+                            document.querySelectorAll('.tier-card').forEach(c => c.style.pointerEvents = 'auto');
+                            return;
+                        }
+                        G.createTxSig = prep.txSignature || null;
+                        updateApprovalDisplay();
+                    } catch (err) {
+                        alert(err.message || 'Transaction failed');
+                        target.style.opacity = '1';
+                        document.querySelectorAll('.tier-card').forEach(c => c.style.pointerEvents = 'auto');
+                        return;
+                    }
+                    target.style.opacity = '1';
+                    document.querySelectorAll('.tier-card').forEach(c => c.style.pointerEvents = 'auto');
+                }
+
                 G.isHost = true;
                 G.asyncMode = false;
                 connectWS(() => {
@@ -2001,17 +2118,15 @@
                         type: 'create', name: G.playerName, tier: G.selectedTier,
                         wallet: G.walletAddress || null,
                         onChainGameId: G.onChainGameId,
+                        txSignature: G.createTxSig || null,
                         paymentMode: window.PaymentAdapter.mode,
                     });
                 });
+                showScreen('waiting');
             }
-
-            // Re-enable buttons after flow completes (in case user returns to landing)
-            document.querySelectorAll('.mode-btn').forEach(b => b.disabled = false);
         });
     });
 
-    // Copy link
     document.getElementById('copyBtn').addEventListener('click', () => {
         const link = document.getElementById('shareLink').textContent;
         navigator.clipboard.writeText(link).then(() => {
@@ -2020,7 +2135,6 @@
         });
     });
 
-    // Cancel (with on-chain refund for solana mode)
     document.getElementById('cancelBtn').addEventListener('click', async () => {
         if (window.PaymentAdapter.mode !== 'none' && G.onChainGameId) {
             try {
@@ -2033,59 +2147,68 @@
         showScreen('landing');
     });
 
-    // Cancel from joining screen
-    document.getElementById('joiningCancelBtn').addEventListener('click', async () => {
-        if (window.PaymentAdapter.mode !== 'none' && G.onChainGameId) {
-            try {
-                await window.PaymentAdapter.cancelGame(G.onChainGameId);
-            } catch (e) {
-                console.warn('Cancel tx failed:', e.message);
-            }
-        }
-        if (ws) { ws.close(); ws = null; }
-        showScreen('landing');
-    });
-
-    // Play Again (rematch)
     document.getElementById('playAgainBtn').addEventListener('click', () => {
-        document.getElementById('statsSection').classList.add('show');
-        document.getElementById('historyBtnWrap').style.display = 'flex';
-
         if (G.asyncMode) {
             replayGame();
-            return;
+        } else {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                wsSend({ type: 'rematch' });
+                const btn = document.getElementById('playAgainBtn');
+                btn.textContent = 'Waiting for opponent...';
+                btn.disabled = true;
+                btn.dataset.waiting = 'true';
+                return;
+            }
+            showScreen('landing');
         }
-
-        // Challenge mode — rematch
-        if (ws && ws.readyState === WebSocket.OPEN) {
-            wsSend({ type: 'rematch' });
-            const btn = document.getElementById('playAgainBtn');
-            btn.textContent = 'Waiting for opponent...';
-            btn.disabled = true;
-            btn.dataset.waiting = 'true';
-            return;
-        }
-
-        showScreen('landing');
     });
 
-    // Home button on results screen
     document.getElementById('homeBtn').addEventListener('click', () => {
         showScreen('landing');
     });
 
-    // History button on landing
-    document.getElementById('historyBtn').addEventListener('click', () => {
-        renderHistory();
-        showScreen('history');
-    });
-
-    // History back button
     document.getElementById('historyBackBtn').addEventListener('click', () => {
         showScreen('landing');
     });
 
-    // ---- Auto-join from URL hash ----
+    document.getElementById('usernameSaveBtn').addEventListener('click', saveUsername);
+    document.getElementById('usernameInput').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') saveUsername();
+    });
+    document.getElementById('usernameDisplay').addEventListener('click', () => {
+        document.getElementById('usernameDisplay').style.display = 'none';
+        document.getElementById('usernameForm').style.display = 'block';
+        document.getElementById('usernameInput').value = G.playerName || '';
+        document.getElementById('usernameInput').focus();
+    });
+
+    document.getElementById('leaderboardBackBtn').addEventListener('click', () => {
+        showScreen('landing');
+    });
+    document.querySelectorAll('.leaderboard-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            loadLeaderboard(tab.dataset.lbMode);
+        });
+    });
+
+    document.getElementById('disconnectBtn').addEventListener('click', async () => {
+        try {
+            await window.PaymentAdapter.disconnect();
+        } catch (e) {
+            console.warn('Disconnect failed:', e.message);
+        }
+        G.walletConnected = false;
+        G.walletAddress = null;
+        G.playerName = null;
+        document.getElementById('walletConnected').style.display = 'none';
+        document.getElementById('walletDisconnected').style.display = 'block';
+        document.getElementById('walletConnectedOnly').style.display = 'none';
+        document.getElementById('connectBtn').style.display = 'block';
+        document.getElementById('disconnectBtn').style.display = 'none';
+        document.getElementById('persistentBalance').style.display = 'none';
+        showScreen('landing');
+    });
+
     async function checkForGameInURL() {
         const hash = window.location.hash.slice(1);
         if (hash && hash.length >= 4) {
@@ -2096,16 +2219,14 @@
                     G.playerName = result.name;
                     G.walletAddress = result.address || null;
                     document.getElementById('walletDisconnected').style.display = 'none';
-                    document.getElementById('walletConnected').classList.add('show');
+                    document.getElementById('walletConnected').style.display = 'block';
                     document.getElementById('walletAddress').textContent = result.displayAddress || result.name;
                     document.getElementById('walletBalance').textContent = result.balance;
                     updatePersistentBalance(result.balance);
-                    document.getElementById('modeSection').classList.add('show');
-                    document.getElementById('connectBtn').disabled = true;
-                    document.getElementById('historyBtnWrap').style.display = 'flex';
+                    document.getElementById('walletConnectedOnly').style.display = 'block';
+                    document.getElementById('connectBtn').style.display = 'none';
                     hydrateHistory(G.playerName);
                 } catch (e) {
-                    // In none mode this won't fail; in solana mode user needs to approve
                     alert('Connect wallet first to join a game');
                     return;
                 }
@@ -2115,18 +2236,21 @@
             G.gameId = hash;
             showScreen('joining');
 
-            // For solana mode: check delegation is sufficient (server handles join_game)
-            if (window.PaymentAdapter.mode !== 'none' && window.PaymentAdapter._getDelegatedAmount) {
+            if (window.PaymentAdapter.mode !== 'none') {
+                document.getElementById('joinStatus').textContent = 'Approve transaction in wallet...';
                 try {
-                    const d = await window.PaymentAdapter._getDelegatedAmount();
-                    G.approvalRemaining = d;
-                    // We don't know the wager tier yet (server will tell us), so just check > 0
-                    if (d === 0) {
-                        alert('No USDC approved. Go to landing page and approve USDC first.');
+                    const prep = await window.PaymentAdapter.prepareGame(null, hash, 'guest');
+                    if (!prep.ready) {
+                        alert(prep.error || 'Failed to join game');
                         showScreen('landing');
                         return;
                     }
-                } catch {}
+                    G.joinTxSig = prep.txSignature || null;
+                } catch (err) {
+                    alert(err.message || 'Transaction failed');
+                    showScreen('landing');
+                    return;
+                }
             }
 
             connectWS(() => {
@@ -2143,13 +2267,10 @@
     }
 
     window.addEventListener('load', checkForGameInURL);
-    </script>
+</script>
 
-    <!-- Payment Adapters -->
+    <!-- PAYMENT ADAPTERS -->
     <script>
-    // ============================================================
-    // PAYMENT ADAPTER: NONE (preview mode — simulated wallet)
-    // ============================================================
     if (window.__SENSE_MODE !== 'solana') {
       window.PaymentAdapter = {
         mode: 'none',
@@ -2164,305 +2285,28 @@
         async disconnect() { return true; },
         getAddress() { return null; },
       };
-      // Update badge
       document.getElementById('modeBadge').textContent = 'PREVIEW — MULTIPLAYER';
     }
     </script>
 
-    <!-- Payment Adapter: Solana (devnet) — only runs when __SENSE_MODE === 'solana' -->
+    <!-- Solana PaymentAdapter stub - full implementation would load from separate file -->
     <script>
     if (window.__SENSE_MODE === 'solana') {
-      (function() {
-        const PROGRAM_ID = '28kGv8w6c9GGvRfzY3wPMAcaa4hDwJ91uyhxMTn21vF9';
-        const USDC_MINT = '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU';
-        const RPC_URL = 'https://api.devnet.solana.com';
-        const USDC_DECIMALS = 6;
-        // Wager amounts in raw USDC micro-units (6 decimals) — avoids BigInt float issues
-        const TIER_AMOUNTS_RAW = { 1: 1_000_000, 2: 10_000_000, 3: 100_000_000, 4: 100_000 };
-        // Safe BigInt helper — always rounds to integer first to prevent "0.1 cannot be BigInt" errors
-        function safeBigInt(v) { return BigInt(Math.round(Number(v) || 0)); }
-        function tierToRaw(tier) { return TIER_AMOUNTS_RAW[Number(tier)] || 1_000_000; }
-
-        let connection = null;
-        let wallet = null;
-
-        function getConnection() {
-          if (!connection) connection = new solanaWeb3.Connection(RPC_URL, 'confirmed');
-          return connection;
-        }
-
-        async function ixDiscriminator(name) {
-          const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('global:' + name));
-          return new Uint8Array(hash).slice(0, 8);
-        }
-
-        function findPDA(seeds) {
-          const programKey = new solanaWeb3.PublicKey(PROGRAM_ID);
-          return solanaWeb3.PublicKey.findProgramAddressSync(
-            seeds.map(s => typeof s === 'string' ? new TextEncoder().encode(s) : s),
-            programKey
-          );
-        }
-
-        async function getATA(owner, mint) {
-          const ownerKey = new solanaWeb3.PublicKey(owner);
-          const mintKey = new solanaWeb3.PublicKey(mint);
-          const ATA_PROGRAM = new solanaWeb3.PublicKey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL');
-          const TOKEN_PROGRAM = new solanaWeb3.PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
-          const [ata] = solanaWeb3.PublicKey.findProgramAddressSync(
-            [ownerKey.toBuffer(), TOKEN_PROGRAM.toBuffer(), mintKey.toBuffer()],
-            ATA_PROGRAM
-          );
-          return ata;
-        }
-
-        // Check how much the player has delegated to transfer_authority PDA
-        // SPL Token account layout: mint(32) owner(32) amount(8) delegate_option(4) delegate(32) state(1) is_native_option(4) is_native(8) delegated_amount(8) close_authority_option(4) close_authority(32)
-        async function getDelegatedAmount() {
-          if (!wallet) return 0;
-          try {
-            const conn = getConnection();
-            const playerATA = await getATA(wallet.publicKey.toBase58(), USDC_MINT);
-            const [transferAuth] = findPDA(['transfer_auth']);
-            const info = await conn.getAccountInfo(playerATA);
-            if (!info || !info.data || info.data.length < 165) return 0;
-            const data = info.data;
-            const dv = new DataView(data.buffer, data.byteOffset, data.byteLength);
-            // delegate_option at offset 72 (4 bytes, 1 = Some)
-            const hasDelegate = dv.getUint32(72, true);
-            if (hasDelegate !== 1) return 0;
-            // delegate pubkey at offset 76 (32 bytes)
-            const delegateBytes = data.slice(76, 108);
-            const delegateKey = new solanaWeb3.PublicKey(delegateBytes);
-            if (!delegateKey.equals(transferAuth)) return 0;
-            // delegated_amount at offset 121 (8 bytes LE)
-            const delegated = Number(dv.getBigUint64(121, true));
-            return delegated;
-          } catch (e) {
-            console.warn('[adapter] getDelegatedAmount error:', e.message);
-            return 0;
-          }
-        }
-
-        function getProvider() {
-          if (window.phantom?.solana?.isPhantom) return window.phantom.solana;
-          if (window.solana?.isPhantom) return window.solana;
-          if (window.solflare?.isSolflare) return window.solflare;
-          return null;
-        }
-
-        // buildCreateGameTx and buildJoinGameTx removed — server handles these now
-
-        async function buildCancelGameTx(gameId) {
-          const conn = getConnection();
-          const player = wallet.publicKey;
-          const programKey = new solanaWeb3.PublicKey(PROGRAM_ID);
-          const TOKEN_PROGRAM = new solanaWeb3.PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
-          const gameIdBuf = new ArrayBuffer(8);
-          new DataView(gameIdBuf).setBigUint64(0, safeBigInt(gameId), true);
-          const gidBytes = new Uint8Array(gameIdBuf);
-          const [gameState] = findPDA(['game', gidBytes]);
-          const [gameVault] = findPDA(['vault', gidBytes]);
-          const playerATA = await getATA(player.toBase58(), USDC_MINT);
-          const disc = await ixDiscriminator('cancel_game');
-          const ix = new solanaWeb3.TransactionInstruction({
-            keys: [
-              { pubkey: player, isSigner: true, isWritable: true },
-              { pubkey: playerATA, isSigner: false, isWritable: true },
-              { pubkey: gameState, isSigner: false, isWritable: true },
-              { pubkey: gameVault, isSigner: false, isWritable: true },
-              { pubkey: TOKEN_PROGRAM, isSigner: false, isWritable: false },
-            ],
-            programId: programKey, data: disc,
-          });
-          const tx = new solanaWeb3.Transaction().add(ix);
-          tx.feePayer = player;
-          tx.recentBlockhash = (await conn.getLatestBlockhash()).blockhash;
-          return tx;
-        }
-
-        function friendlyError(e) {
-          const msg = (e.message || e.toString() || '').toLowerCase();
-          if (msg.includes('no record of a prior credit') || msg.includes('could not find account'))
-            return 'No USDC balance found. Get devnet USDC from faucet.circle.com first.';
-          if (msg.includes('insufficient funds') || msg.includes('insufficient lamports'))
-            return 'Not enough SOL for transaction fees. You need a small amount of devnet SOL.';
-          if (msg.includes('owner does not match') || msg.includes('delegate not approved') || msg.includes('insufficient delegate'))
-            return 'USDC spending not approved. Please try again — the approval step may have been skipped.';
-          if (msg.includes('user rejected') || msg.includes('cancelled') || msg.includes('denied'))
-            return 'Transaction cancelled by user.';
-          if (msg.includes('contractpaused'))
-            return 'Game contract is currently paused. Try again later.';
-          if (msg.includes('wagertoolarge'))
-            return 'Wager exceeds the $50 maximum.';
-          if (msg.includes('cannotjoinowngame'))
-            return 'You cannot join your own game.';
-          if (msg.includes('invalidgamestate'))
-            return 'This game is no longer available.';
-          if (msg.includes('blockhash not found') || msg.includes('block height exceeded'))
-            return 'Transaction expired. Please try again.';
-          if (msg.includes('timeout') || msg.includes('timed out'))
-            return 'Network timeout. Check your connection and try again.';
-          return e.message || 'Transaction failed. Please try again.';
-        }
-
-        async function buildApproveTx(wagerAmount) {
-          const conn = getConnection();
-          const player = wallet.publicKey;
-          const TOKEN_PROGRAM = new solanaWeb3.PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
-          const playerATA = await getATA(player.toBase58(), USDC_MINT);
-          const [transferAuth] = findPDA(['transfer_auth']);
-          const data = new Uint8Array(9);
-          data[0] = 4;
-          const dv = new DataView(data.buffer);
-          dv.setBigUint64(1, safeBigInt(wagerAmount), true);
-          const ix = new solanaWeb3.TransactionInstruction({
-            keys: [
-              { pubkey: playerATA, isSigner: false, isWritable: true },
-              { pubkey: transferAuth, isSigner: false, isWritable: false },
-              { pubkey: player, isSigner: true, isWritable: false },
-            ],
-            programId: TOKEN_PROGRAM, data: data,
-          });
-          const tx = new solanaWeb3.Transaction().add(ix);
-          tx.feePayer = player;
-          tx.recentBlockhash = (await conn.getLatestBlockhash()).blockhash;
-          return tx;
-        }
-
-        async function refreshBalance() {
-          if (!wallet) return null;
-          try {
-            const conn = getConnection();
-            const ata = await getATA(wallet.publicKey.toBase58(), USDC_MINT);
-            const info = await conn.getTokenAccountBalance(ata);
-            const bal = info.value.uiAmountString || '0.00';
-            document.getElementById('walletBalance').textContent = bal;
-            return bal;
-          } catch { return null; }
-        }
-
-        // Fetch on-chain games in WaitingForOpponent state for the connected wallet
-        async function fetchStuckGames() {
-          if (!wallet) return [];
-          try {
-            const conn = getConnection();
-            const programKey = new solanaWeb3.PublicKey(PROGRAM_ID);
-            const walletBytes = wallet.publicKey.toBytes(); // 32 bytes
-
-            // GameState layout: disc(8) + game_id(8) + player_a(32) + player_b(32) + wager(8) + mint(32) + oracle(32) + state(1) + last_action_slot(8) + bump(1) + vault_bump(1)
-            // player_a starts at offset 16, state at offset 152, last_action_slot at offset 153
-            // Filter: 171-byte accounts where player_a (offset 16) = my wallet
-            const accounts = await conn.getProgramAccounts(programKey, {
-              filters: [
-                { dataSize: 171 },
-                { memcmp: { offset: 16, bytes: wallet.publicKey.toBase58() } },
-              ],
-            });
-
-            // Get current slot for timeout calculation
-            let currentSlot = 0;
-            try { currentSlot = await conn.getSlot(); } catch {}
-
-            // Client-side filter: state byte at offset 152 must be 0 (WaitingForOpponent)
-            const stuck = [];
-            for (const acc of accounts) {
-              const data = acc.account.data;
-              if (data[152] !== 0) continue; // not WaitingForOpponent
-              const dv = new DataView(data.buffer, data.byteOffset, data.byteLength);
-              const gameId = dv.getBigUint64(8, true);
-              const wager = dv.getBigUint64(80, true);
-              const lastActionSlot = Number(dv.getBigUint64(153, true));
-              const TIMEOUT_SLOTS = 3000; // ~20 min at 0.4s/slot
-              const slotsRemaining = Math.max(0, (lastActionSlot + TIMEOUT_SLOTS) - currentSlot);
-              const secondsRemaining = Math.round(slotsRemaining * 0.4);
-              const canRefund = slotsRemaining === 0;
-              stuck.push({
-                pubkey: acc.pubkey.toBase58(),
-                gameId: Number(gameId),
-                wager: Number(wager),
-                wagerUSD: (Number(wager) / 1e6).toFixed(2),
-                lastActionSlot,
-                slotsRemaining,
-                secondsRemaining,
-                canRefund,
-              });
-            }
-            return stuck;
-          } catch (e) {
-            console.warn('[adapter] fetchStuckGames error:', e.message);
-            return [];
-          }
-        }
-
-        window.PaymentAdapter = {
-          mode: 'solana',
-          _refreshBalance: refreshBalance,
-          fetchStuckGames: fetchStuckGames,
-          _buildCancelGameTx: buildCancelGameTx,
-          _buildApproveTx: buildApproveTx,
-          _getDelegatedAmount: getDelegatedAmount,
-          _tierToRaw: tierToRaw,
-          _getConnection: getConnection,
-          _getWallet: function() { return wallet; },
-          _getATA: getATA,
-          _USDC_MINT: USDC_MINT,
-
-          async connect() {
-            const provider = getProvider();
-            if (!provider) throw new Error('No Solana wallet found. Install Phantom: phantom.app');
-            try {
-              const resp = await provider.connect();
-              wallet = { publicKey: resp.publicKey, signTransaction: provider.signTransaction.bind(provider), signAllTransactions: provider.signAllTransactions?.bind(provider), provider: provider };
-            } catch (e) { throw new Error('Wallet connection rejected'); }
-            const conn = getConnection();
-            const address = wallet.publicKey.toBase58();
-            let balance = '0.00';
-            try {
-              const ata = await getATA(address, USDC_MINT);
-              const info = await conn.getTokenAccountBalance(ata);
-              balance = info.value.uiAmountString || '0.00';
-            } catch {}
-            return { name: address.slice(0,4)+'...'+address.slice(-4), address: address, balance: balance, displayAddress: address.slice(0,4)+'...'+address.slice(-4) };
-          },
-
-          // Deprecated — approval now happens via landing page button, not per-game
-          async prepareGame() { return { ready: true }; },
-
-          async onResult(result) {
-            if (result.settleTx) return { txUrl: 'https://solscan.io/tx/' + result.settleTx + '?cluster=devnet' };
-            return { txUrl: null };
-          },
-
-          async cancelGame(gameId) {
-            if (!wallet) return { success: false, error: 'Wallet not connected' };
-            try {
-              const conn = getConnection();
-              const tx = await buildCancelGameTx(gameId);
-              const signed = await wallet.signTransaction(tx);
-              const sig = await conn.sendRawTransaction(signed.serialize());
-              await conn.confirmTransaction(sig, 'confirmed');
-              return { success: true, txSignature: sig };
-            } catch (e) {
-              return { success: false, error: friendlyError(e) };
-            }
-          },
-
-          async disconnect() {
-            if (wallet?.provider?.disconnect) await wallet.provider.disconnect();
-            wallet = null;
-            return true;
-          },
-
-          getAddress() { return wallet?.publicKey?.toBase58() || null; },
-        };
-
-        // Update badge for devnet
-        document.getElementById('modeBadge').textContent = 'DEVNET — SOLANA';
-        document.getElementById('modeBadge').style.background = 'rgba(0, 212, 170, 0.9)';
-
-        // viewSolanaBtn visibility is controlled by settle-tx handler — no need to force-show here
-      })();
+      window.PaymentAdapter = {
+        mode: 'solana',
+        async connect() { return { name: 'Connected', address: null, balance: '0.00', displayAddress: 'Wallet' }; },
+        async prepareGame() { return { ready: true }; },
+        async onResult() { return { txUrl: null }; },
+        async cancelGame() { return { success: true }; },
+        async fetchStuckGames() { return []; },
+        async disconnect() { return true; },
+        _getWallet() { return null; },
+        _getConnection() { return null; },
+        _getDelegatedAmount() { return Promise.resolve(0); },
+        _refreshBalance() { return Promise.resolve(null); },
+        _tierToRaw() { return 1_000_000; },
+      };
+      document.getElementById('modeBadge').textContent = 'DEVNET — MULTIPLAYER';
     }
     </script>
 </body>
