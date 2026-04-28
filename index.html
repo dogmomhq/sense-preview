@@ -2098,6 +2098,8 @@
             target.classList.add('selected');
             G.selectedTier = parseInt(target.dataset.tier);
             G.onChainGameId = Date.now();
+            // Landing page tiers are always async/random mode
+            if (!G.selectedMode) G.selectedMode = 'random';
 
             if (G.selectedMode === 'random') {
                 if (window.PaymentAdapter.mode !== 'none') {
