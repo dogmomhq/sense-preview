@@ -1013,6 +1013,7 @@
             wager: data.wager, tier: data.tier,
             timestamp: Date.now(),
             myAnswer: data.myAnswer, myTime: data.myTime,
+            createTx: data.createTx || G.createTxSig || null,
         };
         updateHistoryBadge();
     }
@@ -1070,6 +1071,7 @@
                 // Move from stuckGames to matchLog as a cancelled/refunded entry
                 var stuckGame = G.stuckGames.find(g => g.gameId === gameId);
                 var wagerUSD = stuckGame ? stuckGame.wagerUSD : '0.00';
+                var stuckEntry = G.stuckGames.find(g => g.gameId === gameId);
                 G.matchLog.unshift({
                     matchId: 'cancel-' + gameId,
                     opponent: '—',
@@ -1077,6 +1079,7 @@
                     wager: parseFloat(wagerUSD),
                     payout: parseFloat(wagerUSD),
                     timestamp: Date.now(),
+                    createTx: (stuckEntry && stuckEntry.createTx) || null,
                     refundTx: result.txSignature || null,
                     isCancelled: true,
                 });
@@ -1338,11 +1341,12 @@
                 const mins = Math.floor((totalSecs % 3600) / 60);
                 const secs = totalSecs % 60;
                 const timerText = m.canRefund ? 'Ready!' : (hrs > 0 ? `${hrs}:${String(mins).padStart(2,'0')}:${String(secs).padStart(2,'0')}` : `${mins}:${String(secs).padStart(2,'0')}`);
+                const stuckCreateLink = m.createTx ? ' · <a href="https://solscan.io/tx/'+m.createTx+'?cluster=devnet" target="_blank" style="color:var(--accent);text-decoration:none;font-size:11px;">Tx ↗</a>' : '';
                 return `<div class="history-card" style="border-left:3px solid var(--draw)" data-stuck-id="${m.gameId}" data-seconds="${totalSecs}">
                     <div class="history-summary">
                         <div style="flex:1">
                             <span class="history-opp" style="color:var(--draw)">Open Game</span><br>
-                            <span class="history-meta">$${m.wagerUSD} USDC · Waiting for opponent</span><br>
+                            <span class="history-meta">$${m.wagerUSD} USDC · Waiting for opponent${stuckCreateLink}</span><br>
                             <span style="font-size:12px;color:var(--text-secondary);margin-top:4px;display:inline-block">
                                 ${m.canRefund ? '⏰ Auto-refund available' : '⏳ Auto-refund in: <span class="stuck-timer" data-stuck-id="'+m.gameId+'">'+timerText+'</span>'}
                             </span>
@@ -1360,11 +1364,12 @@
                 const pSecs = pendingSecsLeft % 60;
                 const pendingTimerText = pendingSecsLeft <= 0 ? 'Ready!' : (pHrs > 0 ? `${pHrs}:${String(pMins).padStart(2,'0')}:${String(pSecs).padStart(2,'0')}` : `${pMins}:${String(pSecs).padStart(2,'0')}`);
                 const pendingCanRefund = pendingSecsLeft <= 0;
+                const pendingCreateLink = m.createTx ? '<br><a href="https://solscan.io/tx/'+m.createTx+'?cluster=devnet" target="_blank" style="color:var(--accent);text-decoration:none;font-size:11px;">Funds → Vault ↗</a>' : '';
                 return `<div class="history-card pending" data-pending-id="${m.matchId}" data-pending-ts="${m.timestamp}">
                     <div class="history-summary">
                         <div style="flex:1">
                             <span class="history-opp">vs ${sanitize(m.opponent)}</span><br>
-                            <span class="history-meta">${ago} · $${m.wager} USDC</span><br>
+                            <span class="history-meta">${ago} · $${m.wager} USDC</span>${pendingCreateLink}<br>
                             <span style="font-size:12px;color:var(--text-secondary);margin-top:4px;display:inline-block">
                                 ${pendingCanRefund ? '⏰ Auto-refund available' : '⏳ Auto-refund in: <span class="pending-timer" data-pending-ts="'+m.timestamp+'">'+pendingTimerText+'</span>'}
                             </span>
@@ -1391,7 +1396,8 @@
                     </div>
                     <div class="history-detail">
                         <div class="detail-row"><span class="detail-label">Refund Amount</span><span class="detail-value" style="color:var(--accent);">+$${m.payout} USDC</span></div>
-                        ${refundLink ? '<div class="detail-row"><span class="detail-label">Refund Transaction</span><span class="detail-value"><a href="'+refundLink+'" target="_blank" style="color:var(--accent);text-decoration:none;font-size:12px;">View on Solscan ↗</a></span></div>' : ''}
+                        ${m.createTx ? '<div class="detail-row"><span class="detail-label">Funds → Vault</span><span class="detail-value"><a href="https://solscan.io/tx/'+m.createTx+'?cluster=devnet" target="_blank" style="color:var(--lose);text-decoration:none;font-size:12px;">View on Solscan ↗</a></span></div>' : ''}
+                        ${refundLink ? '<div class="detail-row"><span class="detail-label">Refund → Wallet</span><span class="detail-value"><a href="'+refundLink+'" target="_blank" style="color:var(--accent);text-decoration:none;font-size:12px;">View on Solscan ↗</a></span></div>' : ''}
                     </div>
                 </div>`;
             }
@@ -1578,6 +1584,13 @@
                 console.log('[chain] Game created on-chain:', msg.gameId, msg.txSignature);
                 document.getElementById('joinStatus').textContent = 'Game created! Waiting for question...';
                 document.getElementById('joinStatus').className = 'connection-status connected';
+                if (msg.txSignature) {
+                    G.createTxSig = msg.txSignature;
+                    Object.values(G.pendingMatches).forEach(function(pm) {
+                        if (!pm.createTx) pm.createTx = msg.txSignature;
+                    });
+                    if (G.screen === 'history') renderHistory();
+                }
                 refreshAllBalances(2000);
                 break;
             case 'chain-joining':
