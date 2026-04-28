@@ -28,7 +28,7 @@
             height: 100vh;
         }
 
-        #play, #history, #landing { overflow-y: auto; align-items: flex-start; }
+        #play, #history, #landing, #leaderboard { overflow-y: auto; align-items: flex-start; }
 
         .container {
             width: 100%; height: 100vh;
@@ -300,6 +300,53 @@
             vertical-align: middle;
         }
 
+        /* USERNAME PROMPT */
+        .username-prompt {
+            display: none; margin-top: 12px; text-align: center;
+        }
+        .username-prompt.show { display: block; }
+        .username-input {
+            background: var(--bg-primary); border: 1px solid var(--border); color: var(--text-primary);
+            padding: 10px 14px; border-radius: 8px; font-size: 14px; width: 200px;
+            text-align: center; outline: none; transition: border-color 0.3s;
+        }
+        .username-input:focus { border-color: var(--accent); }
+        .username-save-btn {
+            background: var(--accent); color: #000; border: none; padding: 10px 18px;
+            border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer;
+            margin-left: 8px; transition: opacity 0.3s;
+        }
+        .username-save-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .username-error { color: var(--lose); font-size: 12px; margin-top: 6px; }
+        .username-display {
+            color: var(--accent); font-size: 16px; font-weight: 700; margin-top: 4px;
+        }
+
+        /* LEADERBOARD */
+        .leaderboard-content { width: 100%; max-width: 600px; max-height: 100vh; overflow-y: auto; padding-bottom: 40px; }
+        .leaderboard-title { font-size: 28px; font-weight: 700; margin-bottom: 8px; text-align: center; }
+        .leaderboard-tabs { display: flex; justify-content: center; gap: 8px; margin-bottom: 20px; }
+        .leaderboard-tab {
+            padding: 8px 20px; border-radius: 20px; font-size: 13px; font-weight: 600;
+            cursor: pointer; border: 1px solid var(--border); background: transparent;
+            color: var(--text-secondary); transition: all 0.3s;
+        }
+        .leaderboard-tab.active { background: var(--accent); color: #000; border-color: var(--accent); }
+        .lb-table { width: 100%; border-collapse: collapse; }
+        .lb-table th {
+            text-align: left; padding: 10px 12px; font-size: 11px; text-transform: uppercase;
+            color: var(--text-secondary); letter-spacing: 0.5px; border-bottom: 1px solid var(--border);
+        }
+        .lb-table td {
+            padding: 12px; font-size: 14px; border-bottom: 1px solid rgba(42,42,62,0.3);
+        }
+        .lb-table tr:hover td { background: rgba(0, 212, 170, 0.05); }
+        .lb-rank { font-weight: 700; color: var(--accent); width: 40px; }
+        .lb-name { font-weight: 600; }
+        .lb-stat { font-variant-numeric: tabular-nums; color: var(--text-secondary); }
+        .lb-pnl-pos { color: var(--win); }
+        .lb-pnl-neg { color: var(--lose); }
+
         /* TOAST */
         .toast {
             position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px);
@@ -360,6 +407,14 @@
                             <span id="solWarning" style="display:none;color:var(--lose);font-size:12px;margin-left:6px;">Low!</span>
                         </div>
                         <div class="balance-label" style="margin-top:6px;">Wallet Balance</div>
+                        <div class="username-prompt" id="usernamePrompt">
+                            <div id="usernameDisplay" class="username-display" style="display:none;"></div>
+                            <div id="usernameForm">
+                                <input type="text" class="username-input" id="usernameInput" placeholder="Choose a username" maxlength="16" autocomplete="off">
+                                <button class="username-save-btn" id="usernameSaveBtn">Save</button>
+                                <div class="username-error" id="usernameError"></div>
+                            </div>
+                        </div>
                         <div id="sessionApprovalRow" style="display:none;margin-top:10px;font-size:13px;color:var(--text-secondary);">
                             <label style="cursor:pointer;">Pre-approve
                                 <select id="sessionGamesSelect" style="background:rgba(255,255,255,0.1);color:var(--text-primary);border:1px solid rgba(255,255,255,0.2);border-radius:6px;padding:2px 6px;font-size:13px;margin:0 4px;">
@@ -392,6 +447,7 @@
 
                 <div class="history-btn-wrap" id="historyBtnWrap" style="display:none;justify-content:center;margin-top:24px;padding-bottom:8px;">
                     <button class="btn-secondary" id="historyBtn" style="padding:12px 28px;font-size:15px;border:1px solid var(--border);border-radius:8px;background:var(--bg-secondary);color:var(--text-primary);cursor:pointer;">Match History <span class="history-badge" id="historyBadge" style="background:var(--accent);color:#000;border-radius:12px;padding:2px 8px;font-size:12px;margin-left:6px;">0</span></button>
+                    <button class="btn-secondary" id="leaderboardBtn" style="padding:12px 28px;font-size:15px;border:1px solid var(--border);border-radius:8px;background:var(--bg-secondary);color:var(--text-primary);cursor:pointer;">Leaderboard</button>
                 </div>
 
                 <div class="stats-section" id="statsSection">
@@ -517,6 +573,19 @@
                 <h2 class="history-title">Match History</h2>
                 <div id="historyList"></div>
                 <button class="btn-secondary" id="historyBackBtn" style="margin-top:24px;width:100%;">Back to Home</button>
+            </div>
+        </div>
+
+        <!-- LEADERBOARD -->
+        <div class="screen" id="leaderboard">
+            <div class="leaderboard-content">
+                <h2 class="leaderboard-title">Leaderboard</h2>
+                <div class="leaderboard-tabs">
+                    <button class="leaderboard-tab active" data-lb-mode="free">Free</button>
+                    <button class="leaderboard-tab" data-lb-mode="paid">Paid</button>
+                </div>
+                <div id="leaderboardTable"></div>
+                <button class="btn-secondary" id="leaderboardBackBtn" style="margin-top:24px;width:100%;">Back to Home</button>
             </div>
         </div>
     </div>
@@ -771,9 +840,17 @@
     };
 
     // Fetch match history from server DB and merge into G.matchLog
+    // For paid mode with wallet, use wallet-based endpoint for reliable lookup
     function hydrateHistory(playerName) {
         var httpUrl = SERVER_URL.replace('wss://', 'https://').replace('ws://', 'http://');
-        fetch(httpUrl + '/history/' + encodeURIComponent(playerName) + '?limit=50')
+        var url;
+        var useWallet = (G.walletAddress && window.__SENSE_MODE === 'solana');
+        if (useWallet) {
+            url = httpUrl + '/api/history/wallet/' + encodeURIComponent(G.walletAddress) + '?limit=50';
+        } else {
+            url = httpUrl + '/history/' + encodeURIComponent(playerName) + '?limit=50';
+        }
+        fetch(url)
             .then(function(r) { return r.json(); })
             .then(function(data) {
                 if (!data.matches || !data.matches.length) return;
@@ -783,7 +860,13 @@
                 var wagerMap = { 1: 1, 2: 10, 3: 100, 4: 0.10 };
                 data.matches.forEach(function(row) {
                     if (existingIds[row.match_id]) return; // skip duplicates
-                    var isA = (row.player_a === playerName);
+                    // For wallet-based lookup, identify which side we are by wallet
+                    var isA;
+                    if (useWallet) {
+                        isA = (row.wallet_a === G.walletAddress);
+                    } else {
+                        isA = (row.player_a === playerName);
+                    }
                     var result = isA ? row.result_a : row.result_b;
                     var myTime = isA ? row.time_a : row.time_b;
                     var oppTime = isA ? row.time_b : row.time_a;
@@ -802,7 +885,7 @@
                         myTime: myTime,
                         oppTime: oppTime,
                         correctIdx: row.correct_idx,
-                        correctAnswer: '—', // not stored in DB, but not critical for history
+                        correctAnswer: '—',
                         reason: row.reason,
                         wager: wager,
                         payout: payout,
@@ -814,10 +897,119 @@
                 // Sort newest first
                 G.matchLog.sort(function(a, b) { return b.timestamp - a.timestamp; });
                 updateHistoryBadge();
-                console.log('[history] Hydrated ' + data.matches.length + ' matches from server');
+                console.log('[history] Hydrated ' + data.matches.length + ' matches from server' + (useWallet ? ' (by wallet)' : ''));
+
+                // If wallet lookup returned a username, apply it
+                if (data.username && useWallet) {
+                    G.playerName = data.username;
+                    document.getElementById('walletAddress').textContent = data.username;
+                }
             })
             .catch(function(e) {
                 console.warn('[history] Failed to hydrate:', e.message);
+            });
+    }
+
+    // ---- USERNAME SYSTEM ----
+    function checkAndPromptUsername() {
+        if (!G.walletAddress || window.__SENSE_MODE !== 'solana') return;
+        var httpUrl = SERVER_URL.replace('wss://', 'https://').replace('ws://', 'http://');
+        fetch(httpUrl + '/api/username/' + encodeURIComponent(G.walletAddress))
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                var prompt = document.getElementById('usernamePrompt');
+                prompt.classList.add('show');
+                if (data.username) {
+                    // Has username — show it, hide form
+                    G.playerName = data.username;
+                    document.getElementById('walletAddress').textContent = data.username;
+                    document.getElementById('usernameDisplay').textContent = data.username;
+                    document.getElementById('usernameDisplay').style.display = 'block';
+                    document.getElementById('usernameForm').style.display = 'none';
+                } else {
+                    // No username — show input form
+                    document.getElementById('usernameDisplay').style.display = 'none';
+                    document.getElementById('usernameForm').style.display = 'block';
+                }
+            })
+            .catch(function() {});
+    }
+
+    function saveUsername() {
+        var input = document.getElementById('usernameInput');
+        var errorEl = document.getElementById('usernameError');
+        var btn = document.getElementById('usernameSaveBtn');
+        var username = input.value.trim();
+        errorEl.textContent = '';
+
+        if (!/^[a-zA-Z0-9_]{3,16}$/.test(username)) {
+            errorEl.textContent = '3-16 characters, letters/numbers/underscore only';
+            return;
+        }
+
+        btn.disabled = true;
+        btn.textContent = 'Saving...';
+        var httpUrl = SERVER_URL.replace('wss://', 'https://').replace('ws://', 'http://');
+        fetch(httpUrl + '/api/username', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ wallet: G.walletAddress, username: username }),
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.ok) {
+                G.playerName = username;
+                document.getElementById('walletAddress').textContent = username;
+                document.getElementById('usernameDisplay').textContent = username;
+                document.getElementById('usernameDisplay').style.display = 'block';
+                document.getElementById('usernameForm').style.display = 'none';
+                showToast('Username saved!');
+            } else {
+                errorEl.textContent = data.error || 'Failed to save';
+            }
+        })
+        .catch(function(e) { errorEl.textContent = 'Network error'; })
+        .finally(function() { btn.disabled = false; btn.textContent = 'Save'; });
+    }
+
+    // ---- LEADERBOARD ----
+    var currentLbMode = 'free';
+    function loadLeaderboard(mode) {
+        currentLbMode = mode || 'free';
+        var httpUrl = SERVER_URL.replace('wss://', 'https://').replace('ws://', 'http://');
+        var container = document.getElementById('leaderboardTable');
+        container.innerHTML = '<div style="text-align:center;color:var(--text-secondary);padding:20px;">Loading...</div>';
+
+        // Update tab styling
+        document.querySelectorAll('.leaderboard-tab').forEach(function(tab) {
+            tab.classList.toggle('active', tab.dataset.lbMode === currentLbMode);
+        });
+
+        fetch(httpUrl + '/api/leaderboard?mode=' + currentLbMode + '&limit=20')
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (!data.leaderboard || !data.leaderboard.length) {
+                    container.innerHTML = '<div style="text-align:center;color:var(--text-secondary);padding:40px;">No players yet. Be the first!</div>';
+                    return;
+                }
+                var html = '<table class="lb-table"><thead><tr><th>#</th><th>Player</th><th>W</th><th>L</th><th>Net P&L</th></tr></thead><tbody>';
+                data.leaderboard.forEach(function(p, i) {
+                    var displayName = p.username || p.name;
+                    var pnl = (p.net_pnl / 100).toFixed(2);
+                    var pnlClass = p.net_pnl >= 0 ? 'lb-pnl-pos' : 'lb-pnl-neg';
+                    var pnlSign = p.net_pnl >= 0 ? '+$' : '-$';
+                    if (p.net_pnl < 0) pnl = Math.abs(p.net_pnl / 100).toFixed(2);
+                    html += '<tr><td class="lb-rank">' + (i + 1) + '</td>';
+                    html += '<td class="lb-name">' + sanitize(displayName) + '</td>';
+                    html += '<td class="lb-stat">' + p.wins + '</td>';
+                    html += '<td class="lb-stat">' + p.losses + '</td>';
+                    html += '<td class="lb-stat ' + pnlClass + '">' + pnlSign + pnl + '</td></tr>';
+                });
+                html += '</tbody></table>';
+                container.innerHTML = html;
+            })
+            .catch(function(e) {
+                container.innerHTML = '<div style="text-align:center;color:var(--lose);padding:20px;">Failed to load</div>';
             });
     }
 
@@ -1775,7 +1967,8 @@
             // Fetch SOL balance for devnet mode
             refreshSolBalance();
 
-            // Hydrate match history from server DB (persists across refreshes)
+            // Check for saved username (paid mode) and hydrate history
+            checkAndPromptUsername();
             hydrateHistory(G.playerName);
 
             // Fetch stuck on-chain games in background (don't block connect)
@@ -1990,6 +2183,34 @@
         showScreen('landing');
     });
 
+    // Username save button
+    document.getElementById('usernameSaveBtn').addEventListener('click', saveUsername);
+    document.getElementById('usernameInput').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') saveUsername();
+    });
+    // Click username display to edit
+    document.getElementById('usernameDisplay').addEventListener('click', () => {
+        document.getElementById('usernameDisplay').style.display = 'none';
+        document.getElementById('usernameForm').style.display = 'block';
+        document.getElementById('usernameInput').value = G.playerName || '';
+        document.getElementById('usernameInput').focus();
+    });
+
+    // Leaderboard button
+    document.getElementById('leaderboardBtn').addEventListener('click', () => {
+        loadLeaderboard(currentLbMode);
+        showScreen('leaderboard');
+    });
+    document.getElementById('leaderboardBackBtn').addEventListener('click', () => {
+        showScreen('landing');
+    });
+    // Leaderboard tab clicks
+    document.querySelectorAll('.leaderboard-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            loadLeaderboard(tab.dataset.lbMode);
+        });
+    });
+
     // ---- Auto-join from URL hash ----
     async function checkForGameInURL() {
         const hash = window.location.hash.slice(1);
@@ -2082,7 +2303,7 @@
     <script>
     if (window.__SENSE_MODE === 'solana') {
       (function() {
-        const PROGRAM_ID = '28kGv8w6c9GGvRfzY3wPMAcaa4hDwJ91uyhxMTn21vF9';
+        const PROGRAM_ID = '6SuEv4LUP3cQq4peLpe8jBuWa81sirVcX5sFPm6xPz7M';
         const USDC_MINT = '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU';
         const RPC_URL = 'https://api.devnet.solana.com';
         const USDC_DECIMALS = 6;
