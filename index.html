@@ -502,7 +502,12 @@
                         Balance: <span id="newBalance" style="color:var(--accent);font-weight:600;">—</span>
                     </div>
                 </div>
-                <a id="viewSolanaBtn" href="#" target="_blank" style="display:none;text-align:center;color:var(--accent);font-size:13px;text-decoration:none;margin-bottom:16px;opacity:0.7;">View Transaction on Solana ↗</a>
+                <div id="txLinksSection" style="display:none;text-align:center;margin-bottom:16px;padding:10px;background:rgba(0,212,170,0.08);border-radius:10px;border:1px solid rgba(0,212,170,0.15);">
+                    <div id="txSettleStatus" style="font-size:12px;color:var(--text-secondary);margin-bottom:4px;">
+                        <span class="spinner" style="width:12px;height:12px;margin-right:4px;"></span>Settling on Solana...
+                    </div>
+                    <a id="viewSolanaBtn" href="#" target="_blank" style="display:none;color:var(--accent);font-size:14px;font-weight:600;text-decoration:none;">View Settlement Tx ↗</a>
+                </div>
                 <div class="results-buttons">
                     <button class="btn-primary" id="playAgainBtn">Play Again</button>
                     <button class="btn-secondary" id="homeBtn">Home</button>
@@ -1172,20 +1177,19 @@
                     // Update the most recent matchLog entry with txn hash
                     if (G.matchLog.length > 0) {
                         var lastMatch = G.matchLog[G.matchLog.length - 1];
-                        if (msg.gameId && String(lastMatch.matchId).indexOf(msg.gameId) !== -1) {
-                            lastMatch.txn = msg.txSignature;
-                        } else {
-                            // Fallback: tag the most recent entry
-                            lastMatch.txn = msg.txSignature;
-                        }
+                        lastMatch.txn = msg.txSignature;
                     }
+                    // Hide "Settling..." and show tx link
+                    var txStatusEl = document.getElementById('txSettleStatus');
+                    if (txStatusEl) txStatusEl.style.display = 'none';
                     var solBtn = document.getElementById('viewSolanaBtn');
                     if (solBtn) {
                         solBtn.href = txUrl;
-                        solBtn.textContent = 'View Transaction on Solana ↗';
+                        solBtn.textContent = 'View Settlement on Solscan ↗';
                         solBtn.style.display = 'block';
-                        solBtn.style.opacity = '1';
                     }
+                    // Also update history if it's open
+                    if (G.screen === 'history') renderHistory();
                 }
                 break;
 
@@ -1197,12 +1201,14 @@
             case 'chain-joined':
                 // Server successfully joined us on-chain
                 G.onChainGameId = msg.gameId ? parseInt(msg.gameId) : G.onChainGameId;
+                if (msg.txSignature) G.joinTxSig = msg.txSignature;
                 console.log('[chain] Joined on-chain game', G.onChainGameId);
                 break;
 
             case 'chain-created':
                 // Server created our on-chain game
                 G.onChainGameId = msg.gameId ? parseInt(msg.gameId) : G.onChainGameId;
+                if (msg.txSignature) G.createTxSig = msg.txSignature;
                 console.log('[chain] Created on-chain game', G.onChainGameId);
                 break;
 
@@ -1490,10 +1496,17 @@
                 const bannerText = { win: '🎉 YOU WIN', loss: '😔 YOU LOSE', draw: '🤝 DRAW' }[result];
                 document.getElementById('resultBanner').className = 'result-banner ' + (result === 'loss' ? 'loss' : result);
                 document.getElementById('resultBanner').textContent = bannerText;
-                // Reset tx link — will be shown when settle-tx arrives
+                // Show "Settling..." for Solana mode, reset tx link
                 var solBtn1 = document.getElementById('viewSolanaBtn');
                 if (solBtn1) { solBtn1.style.display = 'none'; solBtn1.href = '#'; }
                 G.lastSettleTxUrl = null;
+                var txSection1 = document.getElementById('txLinksSection');
+                var txStatus1 = document.getElementById('txSettleStatus');
+                if (txSection1 && window.__SENSE_MODE === 'solana') {
+                    txSection1.style.display = 'block';
+                    txStatus1.innerHTML = '<span class="spinner" style="width:12px;height:12px;margin-right:4px;vertical-align:middle;"></span>Settling on Solana...';
+                    txStatus1.style.display = 'block';
+                } else if (txSection1) { txSection1.style.display = 'none'; }
 
                 const options = Array.from(document.querySelectorAll('.answer-btn')).map(b => b.textContent);
                 let myAnswerText = 'Time expired';
@@ -1721,10 +1734,17 @@
             const bannerText = { win: '🎉 YOU WIN', loss: '😔 YOU LOSE', draw: '🤝 DRAW' }[result];
             document.getElementById('resultBanner').className = 'result-banner ' + (result === 'loss' ? 'loss' : result);
             document.getElementById('resultBanner').textContent = bannerText;
-            // Reset tx link
+            // Show "Settling..." for Solana mode, reset tx link
             var solBtn2 = document.getElementById('viewSolanaBtn');
             if (solBtn2) { solBtn2.style.display = 'none'; solBtn2.href = '#'; }
             G.lastSettleTxUrl = null;
+            var txSection2 = document.getElementById('txLinksSection');
+            var txStatus2 = document.getElementById('txSettleStatus');
+            if (txSection2 && window.__SENSE_MODE === 'solana') {
+                txSection2.style.display = 'block';
+                txStatus2.innerHTML = '<span class="spinner" style="width:12px;height:12px;margin-right:4px;vertical-align:middle;"></span>Settling on Solana...';
+                txStatus2.style.display = 'block';
+            } else if (txSection2) { txSection2.style.display = 'none'; }
 
             // Build my answer text
             const options = Array.from(document.querySelectorAll('.answer-btn')).map(b => b.textContent);
