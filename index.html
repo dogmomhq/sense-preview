@@ -767,6 +767,8 @@
     // NAV BAR FUNCTIONS
     function switchTab(tabName) {
         updateNavActive(tabName);
+        if (tabName === 'history') renderHistory();
+        if (tabName === 'leaderboard') loadLeaderboard('free');
         showScreen(tabName);
     }
 
@@ -1010,7 +1012,14 @@
         const btn = document.querySelector(`[data-cancel-game="${gameId}"]`);
         if (btn) { btn.disabled = true; btn.textContent = 'Cancelling...'; }
         try {
-            const result = await window.PaymentAdapter.cancelGame(gameId);
+            // Cancel goes through server — oracle signs the tx, not the player
+            var httpUrl = SERVER_URL.replace('wss://', 'https://').replace('ws://', 'http://');
+            var resp = await fetch(httpUrl + '/api/cancel-game', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ gameId: gameId, wallet: G.walletAddress }),
+            });
+            var result = await resp.json();
             if (result.success) {
                 G.stuckGames = G.stuckGames.filter(g => g.gameId !== gameId);
                 updateHistoryBadge();
@@ -1018,11 +1027,11 @@
                 showToast('Game cancelled — USDC refunded!');
                 if (window.PaymentAdapter._refreshBalance) window.PaymentAdapter._refreshBalance();
             } else {
-                alert(result.error || 'Cancel failed');
+                showToast(result.error || 'Cancel failed');
                 if (btn) { btn.disabled = false; btn.textContent = 'Cancel & Refund'; }
             }
         } catch (e) {
-            alert(e.message || 'Cancel failed');
+            showToast(e.message || 'Cancel failed');
             if (btn) { btn.disabled = false; btn.textContent = 'Cancel & Refund'; }
         }
     };
@@ -2005,6 +2014,7 @@
                     G.stuckGames = stuck || [];
                     if (stuck.length > 0) {
                         updateHistoryBadge();
+                        renderHistory();
                         showToast(stuck.length + ' stuck game' + (stuck.length > 1 ? 's' : '') + ' found');
                     }
                 }).catch(() => {});
