@@ -107,19 +107,24 @@
         }
 
         .persistent-balance {
-            position: fixed; top: 12px; left: 12px;
-            background: rgba(26, 26, 46, 0.95);
-            border: 1px solid var(--border);
-            padding: 6px 14px; border-radius: 20px;
-            font-size: 13px; font-weight: 600;
-            z-index: 100; display: none;
-            color: var(--accent);
-            backdrop-filter: blur(8px);
-            cursor: default;
-            transition: opacity 0.3s ease;
+            display: none; align-items: center; gap: 4px;
+            font-size: 12px; font-weight: 600;
+            color: var(--accent); white-space: nowrap;
+            margin-left: auto; padding: 0 12px;
         }
-        .persistent-balance .bal-label { color: var(--text-secondary); font-weight: 400; font-size: 11px; margin-right: 4px; }
+        .persistent-balance .bal-label { color: var(--text-secondary); font-weight: 400; font-size: 10px; margin-right: 2px; }
         .persistent-balance .bal-amount { font-variant-numeric: tabular-nums; }
+        .persistent-balance.hidden { display: none !important; }
+
+        @media (max-width: 768px) {
+            .persistent-balance {
+                position: fixed; bottom: 70px; left: 0; right: 0;
+                justify-content: center; gap: 6px;
+                background: rgba(26, 26, 46, 0.95); border-top: 1px solid var(--border);
+                padding: 5px 12px; margin-left: 0; font-size: 11px;
+                z-index: 149; backdrop-filter: blur(8px);
+            }
+        }
 
         /* LANDING - COMPACT */
         .landing-content { text-align: center; max-width: 500px; padding: 20px; margin: auto; }
@@ -436,15 +441,6 @@
 </head>
 <body>
     <div class="preview-badge" id="modeBadge">PREVIEW — MULTIPLAYER</div>
-    <div class="persistent-balance" id="persistentBalance">
-        <span class="bal-label">USDC</span>
-        <span class="bal-amount">$<span id="persistentBalAmt">0.00</span></span>
-        <span id="persistentSolWrap" style="display:none;margin-left:8px;border-left:1px solid var(--border);padding-left:8px;">
-            <span class="bal-label">SOL</span>
-            <span class="bal-amount"><span id="persistentSolAmt">0.000</span></span>
-        </span>
-    </div>
-
     <!-- NAV BAR -->
     <div class="nav-bar" id="navBar">
         <button class="nav-item active" id="navPlay" onclick="switchTab('landing')">
@@ -478,6 +474,14 @@
             </svg>
             <span class="nav-label">Profile</span>
         </button>
+        <div class="persistent-balance" id="persistentBalance">
+            <span class="bal-label">USDC</span>
+            <span class="bal-amount">$<span id="persistentBalAmt">0.00</span></span>
+            <span id="persistentSolWrap" style="display:none;margin-left:8px;border-left:1px solid var(--border);padding-left:8px;">
+                <span class="bal-label">SOL</span>
+                <span class="bal-amount"><span id="persistentSolAmt">0.000</span></span>
+            </span>
+        </div>
     </div>
 
     <div class="container">
@@ -787,11 +791,14 @@
 
     function updateNavVisibility() {
         const navBar = document.getElementById('navBar');
+        const balEl = document.getElementById('persistentBalance');
         const hiddenDuringPlay = ['play', 'countdown', 'results', 'waiting', 'joining', 'setup'];
         if (hiddenDuringPlay.includes(G.screen)) {
             navBar.classList.add('hidden');
+            if (balEl) balEl.classList.add('hidden');
         } else {
             navBar.classList.remove('hidden');
+            if (balEl) balEl.classList.remove('hidden');
         }
     }
 
@@ -878,7 +885,7 @@
         const amtEl = document.getElementById('persistentBalAmt');
         if (amount != null) {
             amtEl.textContent = parseFloat(amount).toFixed(2);
-            el.style.display = 'block';
+            el.style.display = 'flex';
         }
     }
 
