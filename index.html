@@ -337,6 +337,10 @@
     <div class="persistent-balance" id="persistentBalance">
         <span class="bal-label">USDC</span>
         <span class="bal-amount">$<span id="persistentBalAmt">0.00</span></span>
+        <span id="persistentApprovalWrap" style="display:none;margin-left:8px;border-left:1px solid var(--border);padding-left:8px;">
+            <span class="bal-label">APPROVED</span>
+            <span class="bal-amount" style="color:var(--text-secondary);">$<span id="persistentApprovalAmt">0.00</span></span>
+        </span>
         <span id="persistentSolWrap" style="display:none;margin-left:8px;border-left:1px solid var(--border);padding-left:8px;">
             <span class="bal-label">SOL</span>
             <span class="bal-amount"><span id="persistentSolAmt">0.000</span></span>
@@ -361,17 +365,16 @@
                             <span id="solWarning" style="display:none;color:var(--lose);font-size:12px;margin-left:6px;">Low!</span>
                         </div>
                         <div class="balance-label" style="margin-top:6px;">Wallet Balance</div>
-                        <div id="sessionApprovalRow" style="display:none;margin-top:10px;font-size:13px;color:var(--text-secondary);">
-                            <label style="cursor:pointer;">Pre-approve
-                                <select id="sessionGamesSelect" style="background:rgba(255,255,255,0.1);color:var(--text-primary);border:1px solid rgba(255,255,255,0.2);border-radius:6px;padding:2px 6px;font-size:13px;margin:0 4px;">
-                                    <option value="5">5</option>
-                                    <option value="10">10</option>
-                                    <option value="20">20</option>
-                                </select>
-                                games
-                            </label>
-                            <div id="approvalRemaining" style="margin-top:4px;font-size:12px;color:var(--win);display:none;"></div>
+                        <div id="delegationRow" style="display:none;margin-top:8px;">
+                            <div style="font-size:14px;font-weight:600;color:var(--accent);">
+                                Approved: $<span id="delegationAmount">0.00</span> USDC
+                            </div>
+                            <div id="delegationGames" style="font-size:12px;color:var(--text-secondary);margin-top:2px;"></div>
                         </div>
+                        <button class="connect-btn" id="approveBtn" style="display:none;margin-top:10px;padding:8px 20px;font-size:13px;background:var(--accent);min-width:0;width:auto;">
+                            Approve USDC to Play
+                        </button>
+                        <div id="approveError" style="display:none;margin-top:6px;font-size:12px;color:var(--lose);"></div>
                     </div>
                 </div>
 
@@ -640,7 +643,8 @@
                     document.getElementById('balanceAfter').style.display = 'block';
                     updatePersistentBalance(bal);
                 }
-                refreshSolBalance(); // SOL may have changed too
+                refreshSolBalance();
+                refreshDelegation(); // Update delegation display after game
             }, 2000);
         } else {
             // Simulated balance
@@ -1185,10 +1189,29 @@
                 }
                 break;
 
+            case 'chain-joining':
+                // Server is joining us to the on-chain game
+                document.getElementById('joinStatus').textContent = msg.message || 'Joining on-chain game...';
+                break;
+
+            case 'chain-joined':
+                // Server successfully joined us on-chain
+                G.onChainGameId = msg.gameId ? parseInt(msg.gameId) : G.onChainGameId;
+                console.log('[chain] Joined on-chain game', G.onChainGameId);
+                break;
+
+            case 'chain-created':
+                // Server created our on-chain game
+                G.onChainGameId = msg.gameId ? parseInt(msg.gameId) : G.onChainGameId;
+                console.log('[chain] Created on-chain game', G.onChainGameId);
+                break;
+
             case 'chain-error':
-                // Server rejected on-chain verification — show error and return to landing
-                showToast('Chain verification failed: ' + (msg.error || 'Unknown error'));
+                // Server chain op failed — show error and return to landing
+                showToast('Chain error: ' + (msg.error || 'Unknown error'));
                 console.error('[chain-error]', msg);
+                // Refresh delegation in case it was consumed
+                refreshDelegation();
                 setTimeout(() => showScreen('landing'), 2000);
                 break;
 
@@ -1407,52 +1430,11 @@
         });
     }
 
-    // ---- ON-CHAIN SETUP AFTER MATCH (solana random mode) ----
-    async function handleChainSetup(msg) {
-        const matchId = msg.matchId;
-        if (!matchId) return;
-
-        if (msg.role === 'host') {
-            // Host already created game at queue time — just tell server we're ready.
-            // ZERO wallet popups here.
-            console.log('[chain] Host already created game at queue time, sending chain-ready for', matchId);
-            wsSend({
-                type: 'chain-ready', matchId: matchId,
-                onChainGameId: G.onChainGameId,
-                wallet: G.walletAddress,
-            });
-        } else if (msg.role === 'guest') {
-            // Guest needs to approve + join in ONE transaction (one popup).
-            document.getElementById('joinStatus').textContent = 'Joining game on chain...';
-            try {
-                const hostGameId = msg.hostOnChainGameId;
-                if (!hostGameId) {
-                    alert('Missing host game ID');
-                    showScreen('landing');
-                    return;
-                }
-                G.onChainGameId = hostGameId;
-                const prep = await window.PaymentAdapter.prepareGame(G.selectedTier, hostGameId, 'guest');
-                if (!prep.ready) {
-                    alert(prep.error || 'Failed to join on-chain game');
-                    showScreen('landing');
-                    return;
-                }
-                G.joinTxSig = prep.txSignature || null;
-                updateApprovalDisplay();
-                wsSend({
-                    type: 'chain-ready', matchId: matchId,
-                    onChainGameId: hostGameId,
-                    wallet: G.walletAddress,
-                });
-                document.getElementById('joinStatus').textContent = 'Ready! Waiting for question...';
-            } catch (e) {
-                alert(e.message || 'On-chain join failed');
-                showScreen('landing');
-            }
-        } else if (msg.role === 'guest-wait') {
-            // Waiting for host to set up — just show status
-            document.getElementById('joinStatus').textContent = msg.message || 'Matched! Setting up...';
+    // ---- ON-CHAIN STATUS UPDATES (server does create/join — client just shows status) ----
+    function handleChainSetup(msg) {
+        // Legacy handler — server now does all chain ops. Just show status messages.
+        if (msg.message) {
+            document.getElementById('joinStatus').textContent = msg.message;
         }
     }
 
@@ -1559,20 +1541,21 @@
             return;
         }
 
-        // For Solana mode: need approve + create_game before queuing (1 popup)
+        // For Solana mode: check delegation is sufficient (no popup — approve was done on landing)
         if (window.PaymentAdapter && window.PaymentAdapter.mode !== 'none') {
-            try {
-                G.onChainGameId = Date.now();
-                const prep = await window.PaymentAdapter.prepareGame(G.selectedTier, G.onChainGameId, 'host');
-                if (!prep.ready) {
-                    showToast(prep.error || 'Failed to prepare game');
-                    return;
-                }
-                G.createTxSig = prep.txSignature || null;
-                updateApprovalDisplay();
-            } catch (e) {
-                showToast(e.message || 'Game setup failed');
-                return;
+            G.onChainGameId = Date.now();
+            // Quick delegation check — if insufficient, send back to landing to re-approve
+            if (window.PaymentAdapter._tierToRaw && window.PaymentAdapter._getDelegatedAmount) {
+                try {
+                    const d = await window.PaymentAdapter._getDelegatedAmount();
+                    G.approvalRemaining = d;
+                    const wagerRaw = window.PaymentAdapter._tierToRaw(G.selectedTier);
+                    if (d < wagerRaw) {
+                        showToast('Delegation expired — approve more USDC to continue');
+                        showScreen('landing');
+                        return;
+                    }
+                } catch {}
             }
         }
 
@@ -1812,14 +1795,9 @@
                 }).catch(() => {});
             }
 
-            // Show session approval selector for Solana mode
+            // Fetch on-chain delegation for Solana mode
             if (window.PaymentAdapter.mode === 'solana') {
-                document.getElementById('sessionApprovalRow').style.display = 'block';
-                // Check existing delegation
-                window.PaymentAdapter._getDelegatedAmount().then(d => {
-                    G.approvalRemaining = d;
-                    updateApprovalDisplay();
-                }).catch(() => {});
+                refreshDelegation();
             }
         } catch (e) {
             document.getElementById('connectBtn').disabled = false;
@@ -1828,21 +1806,64 @@
         }
     });
 
-    // Session games selector
-    document.getElementById('sessionGamesSelect').addEventListener('change', (e) => {
-        G.sessionGames = parseInt(e.target.value) || 5;
-    });
+    // Refresh on-chain delegation and update all displays
+    async function refreshDelegation() {
+        if (window.__SENSE_MODE !== 'solana' || !window.PaymentAdapter._getDelegatedAmount) return 0;
+        try {
+            const d = await window.PaymentAdapter._getDelegatedAmount();
+            G.approvalRemaining = d;
+            updateDelegationDisplay();
+            return d;
+        } catch { return G.approvalRemaining || 0; }
+    }
 
-    function updateApprovalDisplay() {
-        const el = document.getElementById('approvalRemaining');
-        if (!el) return;
-        if (G.approvalRemaining > 0 && window.PaymentAdapter?._tierToRaw) {
-            const wagerRaw = window.PaymentAdapter._tierToRaw(G.selectedTier || 1);
-            const games = Math.floor(G.approvalRemaining / wagerRaw);
-            el.style.display = 'block';
-            el.textContent = games + ' game' + (games !== 1 ? 's' : '') + ' pre-approved ($' + (G.approvalRemaining / 1e6).toFixed(2) + ')';
+    function updateDelegationDisplay() {
+        const amt = G.approvalRemaining || 0;
+        const usd = (amt / 1e6).toFixed(2);
+
+        // Landing page delegation row
+        const row = document.getElementById('delegationRow');
+        if (row && window.__SENSE_MODE === 'solana') {
+            row.style.display = 'block';
+            document.getElementById('delegationAmount').textContent = usd;
+            // Show games remaining for selected tier
+            const gamesEl = document.getElementById('delegationGames');
+            if (G.selectedTier && window.PaymentAdapter._tierToRaw) {
+                const wagerRaw = window.PaymentAdapter._tierToRaw(G.selectedTier);
+                const games = Math.floor(amt / wagerRaw);
+                gamesEl.textContent = games + ' game' + (games !== 1 ? 's' : '') + ' at this tier';
+            } else {
+                gamesEl.textContent = '';
+            }
+        }
+
+        // Persistent pill
+        const pillWrap = document.getElementById('persistentApprovalWrap');
+        if (pillWrap && window.__SENSE_MODE === 'solana') {
+            pillWrap.style.display = 'inline';
+            document.getElementById('persistentApprovalAmt').textContent = usd;
+        }
+
+        // Show/hide approve button based on tier selection
+        updateApproveButton();
+    }
+
+    function updateApproveButton() {
+        const btn = document.getElementById('approveBtn');
+        if (!btn || window.__SENSE_MODE !== 'solana') return;
+        if (!G.walletConnected || !G.selectedTier) { btn.style.display = 'none'; return; }
+        const wagerRaw = window.PaymentAdapter._tierToRaw ? window.PaymentAdapter._tierToRaw(G.selectedTier) : 0;
+        const delegation = G.approvalRemaining || 0;
+        if (delegation >= wagerRaw) {
+            btn.style.display = 'none';
+            document.getElementById('approveError').style.display = 'none';
+            // Enable play buttons
+            document.querySelectorAll('.mode-btn').forEach(b => b.disabled = false);
         } else {
-            el.style.display = 'none';
+            btn.style.display = 'inline-block';
+            btn.textContent = 'Approve USDC to Play';
+            // Disable play buttons until approved
+            document.querySelectorAll('.mode-btn').forEach(b => b.disabled = true);
         }
     }
 
@@ -1855,12 +1876,76 @@
             document.querySelectorAll('.tier-card').forEach(c => c.classList.remove('selected'));
             target.classList.add('selected');
             G.selectedTier = parseInt(target.dataset.tier);
-            // Enable mode buttons now that a tier is selected
-            document.querySelectorAll('.mode-btn').forEach(b => b.disabled = false);
+            // Update delegation display for new tier (games remaining, approve button)
+            updateDelegationDisplay();
+            // In preview mode (no solana), just enable buttons directly
+            if (window.__SENSE_MODE !== 'solana') {
+                document.querySelectorAll('.mode-btn').forEach(b => b.disabled = false);
+            }
+            // In solana mode, updateApproveButton (called by updateDelegationDisplay) handles enable/disable
         });
     });
 
-    // Mode buttons — trigger game creation after tier is selected
+    // Approve button — explicit USDC delegation (the ONLY place wallet popup happens)
+    document.getElementById('approveBtn').addEventListener('click', async () => {
+        const btn = document.getElementById('approveBtn');
+        const errEl = document.getElementById('approveError');
+        if (!G.selectedTier || !G.walletConnected) return;
+        btn.disabled = true;
+        btn.textContent = 'Approving...';
+        errEl.style.display = 'none';
+        try {
+            const wagerRaw = window.PaymentAdapter._tierToRaw(G.selectedTier);
+            // Check balance first
+            const conn = window.PaymentAdapter._getConnection();
+            const ata = await window.PaymentAdapter._getATA(window.PaymentAdapter.getAddress(), window.PaymentAdapter._USDC_MINT);
+            let usdcBalance = 0;
+            try {
+                const info = await conn.getTokenAccountBalance(ata);
+                usdcBalance = parseInt(info.value.amount || '0');
+            } catch {
+                errEl.textContent = 'No USDC balance. Get devnet USDC at faucet.circle.com';
+                errEl.style.display = 'block';
+                btn.disabled = false;
+                btn.textContent = 'Approve USDC to Play';
+                return;
+            }
+            if (usdcBalance < wagerRaw) {
+                errEl.textContent = 'Insufficient USDC. You have $' + (usdcBalance / 1e6).toFixed(2) + ' but need $' + (wagerRaw / 1e6).toFixed(2);
+                errEl.style.display = 'block';
+                btn.disabled = false;
+                btn.textContent = 'Approve USDC to Play';
+                return;
+            }
+            // Approve for 10 games at this tier
+            const approveAmount = wagerRaw * 10;
+            const approveTx = await window.PaymentAdapter._buildApproveTx(approveAmount);
+            const wallet = window.PaymentAdapter._getWallet();
+            const signed = await wallet.signTransaction(approveTx);
+            const sig = await conn.sendRawTransaction(signed.serialize());
+            await conn.confirmTransaction(sig, 'confirmed');
+            G.approvalRemaining = approveAmount;
+            updateDelegationDisplay();
+            // Refresh balance too (SOL spent on tx fee)
+            if (window.PaymentAdapter._refreshBalance) {
+                const bal = await window.PaymentAdapter._refreshBalance();
+                if (bal !== null) updatePersistentBalance(bal);
+            }
+            refreshSolBalance();
+        } catch (e) {
+            const msg = e.message || 'Approval failed';
+            if (msg.includes('User rejected')) {
+                // User dismissed — no error, just re-enable
+            } else {
+                errEl.textContent = msg;
+                errEl.style.display = 'block';
+            }
+        }
+        btn.disabled = false;
+        btn.textContent = 'Approve USDC to Play';
+    });
+
+    // Mode buttons — trigger game (NO wallet popup — delegation already approved)
     document.querySelectorAll('.mode-btn').forEach(btn => {
         btn.addEventListener('click', async (e) => {
             const mode = e.target.dataset.mode;
@@ -1873,24 +1958,7 @@
             G.onChainGameId = Date.now();
 
             if (mode === 'random') {
-                // ---- RANDOM MATCH ----
-                if (window.PaymentAdapter.mode !== 'none') {
-                    try {
-                        const prep = await window.PaymentAdapter.prepareGame(G.selectedTier, G.onChainGameId, 'host');
-                        if (!prep.ready) {
-                            showToast(prep.error || 'Failed to prepare game');
-                            document.querySelectorAll('.mode-btn').forEach(b => b.disabled = false);
-                            return;
-                        }
-                        G.createTxSig = prep.txSignature || null;
-                        updateApprovalDisplay();
-                    } catch (err) {
-                        showToast(err.message || 'Game setup failed');
-                        document.querySelectorAll('.mode-btn').forEach(b => b.disabled = false);
-                        return;
-                    }
-                }
-
+                // ---- RANDOM MATCH (no wallet popup — delegation already approved) ----
                 G.isHost = false;
                 G.asyncMode = true;
                 connectWS(() => {
@@ -1905,24 +1973,7 @@
                 document.getElementById('joinStatus').className = 'connection-status waiting';
                 showScreen('joining');
             } else {
-                // ---- CHALLENGE FRIEND ----
-                if (window.PaymentAdapter.mode !== 'none') {
-                    try {
-                        const prep = await window.PaymentAdapter.prepareGame(G.selectedTier, G.onChainGameId, 'host');
-                        if (!prep.ready) {
-                            showToast(prep.error || 'Failed to prepare game');
-                            document.querySelectorAll('.mode-btn').forEach(b => b.disabled = false);
-                            return;
-                        }
-                        G.createTxSig = prep.txSignature || null;
-                        updateApprovalDisplay();
-                    } catch (err) {
-                        showToast(err.message || 'Transaction failed');
-                        document.querySelectorAll('.mode-btn').forEach(b => b.disabled = false);
-                        return;
-                    }
-                }
-
+                // ---- CHALLENGE FRIEND (no wallet popup) ----
                 G.isHost = true;
                 G.asyncMode = false;
                 connectWS(() => {
@@ -1930,7 +1981,6 @@
                         type: 'create', name: G.playerName, tier: G.selectedTier,
                         wallet: G.walletAddress || null,
                         onChainGameId: G.onChainGameId,
-                        txSignature: G.createTxSig || null,
                         paymentMode: window.PaymentAdapter.mode,
                     });
                 });
@@ -2045,22 +2095,18 @@
             G.gameId = hash;
             showScreen('joining');
 
-            // For solana mode: prepare join transaction
-            if (window.PaymentAdapter.mode !== 'none') {
-                document.getElementById('joinStatus').textContent = 'Approve transaction in wallet...';
+            // For solana mode: check delegation is sufficient (server handles join_game)
+            if (window.PaymentAdapter.mode !== 'none' && window.PaymentAdapter._getDelegatedAmount) {
                 try {
-                    const prep = await window.PaymentAdapter.prepareGame(null, hash, 'guest');
-                    if (!prep.ready) {
-                        alert(prep.error || 'Failed to join game');
+                    const d = await window.PaymentAdapter._getDelegatedAmount();
+                    G.approvalRemaining = d;
+                    // We don't know the wager tier yet (server will tell us), so just check > 0
+                    if (d === 0) {
+                        alert('No USDC approved. Go to landing page and approve USDC first.');
                         showScreen('landing');
                         return;
                     }
-                    G.joinTxSig = prep.txSignature || null;
-                } catch (err) {
-                    alert(err.message || 'Transaction failed');
-                    showScreen('landing');
-                    return;
-                }
+                } catch {}
             }
 
             connectWS(() => {
@@ -2185,81 +2231,7 @@
           return null;
         }
 
-        async function buildCreateGameTx(tier, gameId) {
-          const conn = getConnection();
-          const player = wallet.publicKey;
-          const programKey = new solanaWeb3.PublicKey(PROGRAM_ID);
-          const mintKey = new solanaWeb3.PublicKey(USDC_MINT);
-          const TOKEN_PROGRAM = new solanaWeb3.PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
-          const [config] = findPDA(['config']);
-          const gameIdBuf = new ArrayBuffer(8);
-          new DataView(gameIdBuf).setBigUint64(0, safeBigInt(gameId), true);
-          const gidBytes = new Uint8Array(gameIdBuf);
-          const [gameState] = findPDA(['game', gidBytes]);
-          const [gameVault] = findPDA(['vault', gidBytes]);
-          const [transferAuth] = findPDA(['transfer_auth']);
-          const playerATA = await getATA(player.toBase58(), USDC_MINT);
-          const configInfo = await conn.getAccountInfo(config);
-          const oracleKey = new solanaWeb3.PublicKey(configInfo.data.slice(72, 104));
-          const disc = await ixDiscriminator('create_game');
-          const wagerAmount = safeBigInt(tierToRaw(tier));
-          const data = new Uint8Array(24);
-          data.set(disc, 0);
-          const dv = new DataView(data.buffer);
-          dv.setBigUint64(8, wagerAmount, true);
-          dv.setBigUint64(16, safeBigInt(gameId), true);
-          const ix = new solanaWeb3.TransactionInstruction({
-            keys: [
-              { pubkey: player, isSigner: true, isWritable: true },
-              { pubkey: config, isSigner: false, isWritable: false },
-              { pubkey: playerATA, isSigner: false, isWritable: true },
-              { pubkey: gameState, isSigner: false, isWritable: true },
-              { pubkey: gameVault, isSigner: false, isWritable: true },
-              { pubkey: mintKey, isSigner: false, isWritable: false },
-              { pubkey: oracleKey, isSigner: false, isWritable: false },
-              { pubkey: transferAuth, isSigner: false, isWritable: false },
-              { pubkey: TOKEN_PROGRAM, isSigner: false, isWritable: false },
-              { pubkey: solanaWeb3.SystemProgram.programId, isSigner: false, isWritable: false },
-            ],
-            programId: programKey, data: data,
-          });
-          const tx = new solanaWeb3.Transaction().add(ix);
-          tx.feePayer = player;
-          tx.recentBlockhash = (await conn.getLatestBlockhash()).blockhash;
-          return tx;
-        }
-
-        async function buildJoinGameTx(gameId) {
-          const conn = getConnection();
-          const player = wallet.publicKey;
-          const programKey = new solanaWeb3.PublicKey(PROGRAM_ID);
-          const TOKEN_PROGRAM = new solanaWeb3.PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
-          const gameIdBuf = new ArrayBuffer(8);
-          new DataView(gameIdBuf).setBigUint64(0, safeBigInt(gameId), true);
-          const gidBytes = new Uint8Array(gameIdBuf);
-          const [config] = findPDA(['config']);
-          const [gameState] = findPDA(['game', gidBytes]);
-          const [gameVault] = findPDA(['vault', gidBytes]);
-          const [transferAuth] = findPDA(['transfer_auth']);
-          const playerATA = await getATA(player.toBase58(), USDC_MINT);
-          const disc = await ixDiscriminator('join_game');
-          const ix = new solanaWeb3.TransactionInstruction({
-            keys: [
-              { pubkey: player, isSigner: true, isWritable: true },
-              { pubkey: config, isSigner: false, isWritable: false },
-              { pubkey: playerATA, isSigner: false, isWritable: true },
-              { pubkey: gameState, isSigner: false, isWritable: true },
-              { pubkey: gameVault, isSigner: false, isWritable: true },
-              { pubkey: transferAuth, isSigner: false, isWritable: false },
-              { pubkey: TOKEN_PROGRAM, isSigner: false, isWritable: false },
-            ],
-            programId: programKey, data: disc,
-          });
-          const tx = new solanaWeb3.Transaction().add(ix);
-          tx.feePayer = player;
-          tx.recentBlockhash = (await conn.getLatestBlockhash()).blockhash;
-          return tx;
-        }
+        // buildCreateGameTx and buildJoinGameTx removed — server handles these now
 
         async function buildCancelGameTx(gameId) {
           const conn = getConnection();
@@ -2407,53 +2379,14 @@
           mode: 'solana',
           _refreshBalance: refreshBalance,
           fetchStuckGames: fetchStuckGames,
-          _buildCreateGameTx: buildCreateGameTx,
-          _buildJoinGameTx: buildJoinGameTx,
           _buildCancelGameTx: buildCancelGameTx,
           _buildApproveTx: buildApproveTx,
           _getDelegatedAmount: getDelegatedAmount,
           _tierToRaw: tierToRaw,
           _getConnection: getConnection,
           _getWallet: function() { return wallet; },
-
-          // Approve-only: just sign the delegate approval (for random match — game created after match)
-          async approveOnly(tier) {
-            if (!wallet) return { ready: false, error: 'Wallet not connected' };
-            try {
-              const conn = getConnection();
-              const wagerRaw = Number(safeBigInt(tierToRaw(tier)));
-              // Check if already delegated enough
-              const delegated = await getDelegatedAmount();
-              if (delegated >= wagerRaw) {
-                console.log('[session] Already delegated $' + (delegated / 1e6).toFixed(2) + ', skipping approve');
-                G.approvalRemaining = delegated;
-                return { ready: true, skippedApprove: true };
-              }
-              const playerATA = await getATA(wallet.publicKey.toBase58(), USDC_MINT);
-              let usdcBalance = 0;
-              try {
-                const info = await conn.getTokenAccountBalance(playerATA);
-                usdcBalance = parseInt(info.value.amount || '0');
-              } catch {
-                return { ready: false, error: 'No USDC balance found. Get devnet USDC at faucet.circle.com, then try again.' };
-              }
-              if (usdcBalance < wagerRaw) {
-                const have = (usdcBalance / 1e6).toFixed(2);
-                const need = (wagerRaw / 1e6).toFixed(2);
-                return { ready: false, error: 'Insufficient USDC. You have $'+have+' but need $'+need+'.' };
-              }
-              const sessionCount = G.sessionGames || 5;
-              const approveAmount = wagerRaw * sessionCount;
-              const approveTx = await buildApproveTx(approveAmount);
-              const signed = await wallet.signTransaction(approveTx);
-              const sig = await conn.sendRawTransaction(signed.serialize());
-              await conn.confirmTransaction(sig, 'confirmed');
-              G.approvalRemaining = approveAmount;
-              return { ready: true, approveSig: sig };
-            } catch (e) {
-              return { ready: false, error: friendlyError(e) };
-            }
-          },
+          _getATA: getATA,
+          _USDC_MINT: USDC_MINT,
 
           async connect() {
             const provider = getProvider();
@@ -2473,46 +2406,8 @@
             return { name: address.slice(0,4)+'...'+address.slice(-4), address: address, balance: balance, displayAddress: address.slice(0,4)+'...'+address.slice(-4) };
           },
 
-          async prepareGame(tier, gameId, role) {
-            // Client only does USDC approve — server handles create_game/join_game on-chain
-            if (!wallet) return { ready: false, error: 'Wallet not connected' };
-            try {
-              const conn = getConnection();
-              const wagerRaw = Number(safeBigInt(tierToRaw(tier)));
-              const playerATA = await getATA(wallet.publicKey.toBase58(), USDC_MINT);
-              let usdcBalance = 0;
-              try {
-                const info = await conn.getTokenAccountBalance(playerATA);
-                usdcBalance = parseInt(info.value.amount || '0');
-              } catch {
-                return { ready: false, error: 'No USDC balance found. Get devnet USDC at faucet.circle.com, then try again.' };
-              }
-              if (usdcBalance < wagerRaw) {
-                const have = (usdcBalance / 1e6).toFixed(2);
-                const need = (wagerRaw / 1e6).toFixed(2);
-                return { ready: false, error: 'Insufficient USDC. You have $'+have+' but need $'+need+'. Get devnet USDC at faucet.circle.com.' };
-              }
-              // Check existing delegation — skip approve if sufficient
-              const delegated = await getDelegatedAmount();
-              if (delegated >= wagerRaw) {
-                console.log('[session] Delegation sufficient ($' + (delegated / 1e6).toFixed(2) + '), no wallet popup needed');
-                G.approvalRemaining = delegated;
-                return { ready: true, skippedApprove: true };
-              }
-              // Need approve — single wallet popup
-              const sessionCount = G.sessionGames || 5;
-              const approveAmount = wagerRaw * sessionCount;
-              console.log('[session] Approving $' + (approveAmount / 1e6).toFixed(2) + ' for ' + sessionCount + ' games');
-              const approveTx = await buildApproveTx(approveAmount);
-              const signed = await wallet.signTransaction(approveTx);
-              const sig = await conn.sendRawTransaction(signed.serialize());
-              await conn.confirmTransaction(sig, 'confirmed');
-              G.approvalRemaining = approveAmount;
-              return { ready: true, approveSig: sig };
-            } catch (e) {
-              return { ready: false, error: friendlyError(e) };
-            }
-          },
+          // Deprecated — approval now happens via landing page button, not per-game
+          async prepareGame() { return { ready: true }; },
 
           async onResult(result) {
             if (result.settleTx) return { txUrl: 'https://solscan.io/tx/' + result.settleTx + '?cluster=devnet' };
