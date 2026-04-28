@@ -145,14 +145,13 @@
             text-align: right;
         }
 
-        .tier-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 24px; }
-        @media (max-width: 600px) { .tier-grid { grid-template-columns: 1fr; } }
+        .tier-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
 
         .tier-card {
             background: var(--bg-secondary); border: 2px solid var(--border);
-            border-radius: 12px; padding: 16px; cursor: pointer;
+            border-radius: 12px; padding: 12px 8px; cursor: pointer;
             transition: all 0.3s ease; position: relative; overflow: hidden;
-            min-height: 100px; display: flex; flex-direction: column;
+            min-height: 70px; display: flex; flex-direction: column;
             justify-content: center; align-items: center;
         }
         .tier-card::before {
@@ -164,8 +163,15 @@
         .tier-card:hover::before { left: 100%; }
         .tier-card.selected { border-color: var(--accent); background: linear-gradient(135deg, rgba(0, 212, 170, 0.1), rgba(0, 212, 170, 0.05)); box-shadow: 0 8px 20px rgba(0, 212, 170, 0.2); }
 
-        .tier-amount { font-size: 32px; font-weight: 700; color: var(--accent); margin-bottom: 4px; }
-        .tier-count { font-size: 12px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; }
+        .tier-amount { font-size: 24px; font-weight: 700; color: var(--accent); margin-bottom: 2px; }
+        .tier-count { font-size: 11px; color: var(--text-secondary); letter-spacing: 0.3px; }
+        .wallet-stats { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; margin-bottom: 16px; }
+        .wallet-stats-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; }
+        .wallet-stats-label { font-size: 12px; color: var(--text-secondary); }
+        .wallet-stats-value { font-size: 14px; font-weight: 600; color: var(--text-primary); font-family: 'Courier New', monospace; }
+        .wallet-stats-value.accent { color: var(--accent); }
+        .wallet-stats-value.warn { color: var(--draw); }
+        .approve-more-link { color: var(--accent); font-size: 12px; cursor: pointer; text-decoration: underline; margin-left: 6px; }
 
         .connect-btn {
             background: linear-gradient(135deg, var(--accent), var(--accent-dark));
@@ -500,16 +506,30 @@
                 <button class="connect-btn" id="connectBtn">Connect Wallet</button>
 
                 <div id="walletConnectedOnly" style="display: none;">
-                    <h2 style="font-size: 20px; margin-bottom: 16px; text-align: center;">Select Tier</h2>
-                    <div class="tier-grid">
-                        <div class="tier-card" data-tier="1"><div class="tier-amount">$1</div><div class="tier-count">—</div></div>
-                        <div class="tier-card" data-tier="2"><div class="tier-amount">$10</div><div class="tier-count">—</div></div>
-                        <div class="tier-card" data-tier="3"><div class="tier-amount">$100</div><div class="tier-count">—</div></div>
-                        <div class="tier-card" data-tier="4"><div class="tier-amount">$0.10</div><div class="tier-count">—</div></div>
+                    <div class="wallet-stats" id="walletStatsPanel">
+                        <div class="wallet-stats-row">
+                            <span class="wallet-stats-label">USDC Balance</span>
+                            <span class="wallet-stats-value accent" id="statsUsdcBalance">—</span>
+                        </div>
+                        <div class="wallet-stats-row">
+                            <span class="wallet-stats-label">SOL Balance</span>
+                            <span class="wallet-stats-value" id="statsSolBalance">—</span>
+                        </div>
+                        <div class="wallet-stats-row">
+                            <span class="wallet-stats-label">Games Approved</span>
+                            <span class="wallet-stats-value" id="statsGamesApproved">—<span id="approveMoreLink" class="approve-more-link" style="display:none;" onclick="document.getElementById('approveMoreBtn')?.click()">+ approve</span></span>
+                        </div>
                     </div>
 
-                    <div style="text-align: center; margin-top: 24px;">
-                        <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 12px;">Play for free or with stakes</div>
+                    <h2 style="font-size: 18px; margin-bottom: 12px; text-align: center;">Select Tier</h2>
+                    <div class="tier-grid">
+                        <div class="tier-card" data-tier="1"><div class="tier-amount">$1</div><div class="tier-count" id="tierCount1">—</div></div>
+                        <div class="tier-card" data-tier="2"><div class="tier-amount">$10</div><div class="tier-count" id="tierCount2">—</div></div>
+                        <div class="tier-card" data-tier="3"><div class="tier-amount">$100</div><div class="tier-count" id="tierCount3">—</div></div>
+                        <div class="tier-card" data-tier="4"><div class="tier-amount">$0.10</div><div class="tier-count" id="tierCount4">—</div></div>
+                    </div>
+
+                    <div style="text-align: center; margin-top: 12px;">
                         <button class="btn-secondary" style="width: 100%; max-width: 200px; padding: 10px 20px; font-size: 13px;" onclick="playFree()">Play Free</button>
                     </div>
                 </div>
@@ -901,6 +921,7 @@
             const lamports = await conn.getBalance(w.publicKey);
             const sol = (lamports / 1e9).toFixed(4);
             document.getElementById('walletSolBalance').textContent = sol;
+            var ssb = document.getElementById('statsSolBalance'); if (ssb) ssb.textContent = sol + ' SOL';
             document.getElementById('solBalanceRow').style.display = 'block';
             document.getElementById('persistentSolAmt').textContent = sol;
             document.getElementById('persistentSolWrap').style.display = 'inline';
@@ -2106,6 +2127,7 @@
             document.getElementById('walletAddress').textContent = result.displayAddress || result.name;
             document.getElementById('profileWalletAddr').textContent = result.displayAddress || result.name;
             document.getElementById('walletBalance').textContent = result.balance;
+            var sUB = document.getElementById('statsUsdcBalance'); if (sUB) sUB.textContent = '$' + result.balance;
             document.getElementById('profileUSDC').textContent = result.balance;
             updatePersistentBalance(result.balance);
             document.getElementById('walletConnectedOnly').style.display = 'block';
@@ -2113,6 +2135,7 @@
             document.getElementById('disconnectBtn').style.display = 'block';
 
             refreshSolBalance();
+            updateApprovalDisplay();
             checkAndPromptUsername();
             hydrateHistory(G.playerName);
             hydrateTokenMovements();
@@ -2172,17 +2195,39 @@
         btn.textContent = 'Approve More Games';
     });
 
-    function updateApprovalDisplay() {
-        const el = document.getElementById('approvalRemaining');
-        if (!el) return;
-        if (G.approvalRemaining > 0 && window.PaymentAdapter?._tierToRaw) {
-            const wagerRaw = window.PaymentAdapter._tierToRaw(G.selectedTier || 1);
-            const games = Math.floor(G.approvalRemaining / wagerRaw);
-            el.style.display = 'block';
-            el.textContent = games + ' game' + (games !== 1 ? 's' : '') + ' pre-approved';
-        } else {
-            el.style.display = 'none';
+    async function updateApprovalDisplay() {
+        // Read real delegation from chain
+        let delegated = G.approvalRemaining || 0;
+        if (window.PaymentAdapter?._getDelegatedAmount) {
+            try { delegated = await window.PaymentAdapter._getDelegatedAmount(); G.approvalRemaining = delegated; } catch(e) {}
         }
+        // Update stats panel
+        const statsEl = document.getElementById('statsGamesApproved');
+        const linkEl = document.getElementById('approveMoreLink');
+        if (statsEl && window.PaymentAdapter?._tierToRaw) {
+            const tier4Raw = window.PaymentAdapter._tierToRaw(4); // $0.10
+            const gamesAtLowest = Math.floor(delegated / tier4Raw);
+            if (delegated > 0) {
+                statsEl.innerHTML = gamesAtLowest + ' at $0.10';
+                if (linkEl) { linkEl.style.display = 'inline'; }
+            } else {
+                statsEl.innerHTML = '<span style="color:var(--draw)">0</span>';
+                if (linkEl) { linkEl.style.display = 'inline'; linkEl.textContent = 'approve now'; }
+            }
+        }
+        // Update per-tier counts
+        var tierAmounts = {1: 1000000, 2: 10000000, 3: 100000000, 4: 100000};
+        for (var t = 1; t <= 4; t++) {
+            var el = document.getElementById('tierCount' + t);
+            if (el) {
+                var games = Math.floor(delegated / tierAmounts[t]);
+                el.textContent = games > 0 ? games + ' game' + (games !== 1 ? 's' : '') : 'approve first';
+                el.style.color = games > 0 ? 'var(--accent)' : 'var(--text-secondary)';
+            }
+        }
+        // Also update the old approvalRemaining element if it exists
+        var oldEl = document.getElementById('approvalRemaining');
+        if (oldEl) oldEl.style.display = 'none';
     }
 
     document.querySelectorAll('.tier-card').forEach(card => {
@@ -2382,6 +2427,7 @@
                     document.getElementById('walletConnected').style.display = 'block';
                     document.getElementById('walletAddress').textContent = result.displayAddress || result.name;
                     document.getElementById('walletBalance').textContent = result.balance;
+            var sUB = document.getElementById('statsUsdcBalance'); if (sUB) sUB.textContent = '$' + result.balance;
                     updatePersistentBalance(result.balance);
                     document.getElementById('walletConnectedOnly').style.display = 'block';
                     document.getElementById('connectBtn').style.display = 'none';
@@ -2609,6 +2655,7 @@
             const info = await conn.getTokenAccountBalance(ata);
             const bal = info.value.uiAmountString || '0.00';
             document.getElementById('walletBalance').textContent = bal;
+            var statsEl = document.getElementById('statsUsdcBalance'); if (statsEl) statsEl.textContent = '$' + bal;
             return bal;
           } catch { return null; }
         }
@@ -2741,6 +2788,17 @@
 
         document.getElementById('modeBadge').textContent = 'DEVNET — SOLANA';
         document.getElementById('modeBadge').style.background = 'rgba(0, 212, 170, 0.9)';
+
+        // Auto-reconnect wallet on page load if previously approved
+        setTimeout(function() {
+          var provider = getProvider();
+          if (provider) {
+            provider.connect({ onlyIfTrusted: true }).then(function(resp) {
+              wallet = { publicKey: resp.publicKey, signTransaction: provider.signTransaction.bind(provider), signAllTransactions: provider.signAllTransactions?.bind(provider), provider: provider };
+              document.getElementById('connectBtn')?.click();
+            }).catch(function() { /* user hasn't approved this site yet */ });
+          }
+        }, 500);
       })();
     }
     </script>
