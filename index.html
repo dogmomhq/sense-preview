@@ -1456,55 +1456,10 @@
         }
     }
 
-    // ---- Challenge mode rematch chain setup ----
-    async function handleRematchChainSetup(msg) {
-        if (msg.role === 'host') {
-            // Host creates new on-chain game for rematch
-            try {
-                G.onChainGameId = Date.now();
-                const prep = await window.PaymentAdapter.prepareGame(G.selectedTier, G.onChainGameId, 'host');
-                if (!prep.ready) {
-                    showToast(prep.error || 'Failed to create rematch game');
-                    showScreen('landing');
-                    return;
-                }
-                G.createTxSig = prep.txSignature || null;
-                updateApprovalDisplay();
-                wsSend({
-                    type: 'rematch-chain-ready',
-                    onChainGameId: G.onChainGameId,
-                    wallet: G.walletAddress,
-                });
-            } catch (e) {
-                showToast(e.message || 'Rematch chain setup failed');
-                showScreen('landing');
-            }
-        } else if (msg.role === 'guest') {
-            // Guest joins host's new on-chain game
-            try {
-                const hostGameId = msg.hostOnChainGameId;
-                G.onChainGameId = hostGameId;
-                const prep = await window.PaymentAdapter.prepareGame(G.selectedTier, hostGameId, 'guest');
-                if (!prep.ready) {
-                    showToast(prep.error || 'Failed to join rematch game');
-                    showScreen('landing');
-                    return;
-                }
-                G.joinTxSig = prep.txSignature || null;
-                updateApprovalDisplay();
-                wsSend({
-                    type: 'rematch-chain-ready',
-                    onChainGameId: hostGameId,
-                    wallet: G.walletAddress,
-                });
-            } catch (e) {
-                showToast(e.message || 'Rematch join failed');
-                showScreen('landing');
-            }
-        } else if (msg.role === 'guest-wait') {
-            // Waiting for host to create game
-            showToast('Setting up rematch...');
-        }
+    // ---- Challenge mode rematch chain setup (server-side, client just shows status) ----
+    function handleRematchChainSetup(msg) {
+        // Server handles create_game/join_game — client just shows status
+        if (msg.message) showToast(msg.message);
     }
 
     // ---- ASYNC RESULT (routes to live screen or game log) ----
@@ -2519,6 +2474,7 @@
           },
 
           async prepareGame(tier, gameId, role) {
+            // Client only does USDC approve — server handles create_game/join_game on-chain
             if (!wallet) return { ready: false, error: 'Wallet not connected' };
             try {
               const conn = getConnection();
@@ -2538,41 +2494,21 @@
               }
               // Check existing delegation — skip approve if sufficient
               const delegated = await getDelegatedAmount();
-              const needsApprove = delegated < wagerRaw;
-              const gameTx = role === 'host' ? await buildCreateGameTx(tier, gameId) : await buildJoinGameTx(gameId);
-              if (needsApprove) {
-                // Approve for sessionGames worth (default 5) so subsequent games need no approve
-                const sessionCount = G.sessionGames || 5;
-                const approveAmount = wagerRaw * sessionCount;
-                console.log('[session] Approving $' + (approveAmount / 1e6).toFixed(2) + ' for ' + sessionCount + ' games');
-                const approveTx = await buildApproveTx(approveAmount);
-                if (wallet.signAllTransactions) {
-                  const signed = await wallet.signAllTransactions([approveTx, gameTx]);
-                  const approveSig = await conn.sendRawTransaction(signed[0].serialize());
-                  await conn.confirmTransaction(approveSig, 'confirmed');
-                  const gameSig = await conn.sendRawTransaction(signed[1].serialize());
-                  await conn.confirmTransaction(gameSig, 'confirmed');
-                  G.approvalRemaining = approveAmount - wagerRaw;
-                  return { ready: true, txSignature: gameSig };
-                } else {
-                  const sa = await wallet.signTransaction(approveTx);
-                  const as2 = await conn.sendRawTransaction(sa.serialize());
-                  await conn.confirmTransaction(as2, 'confirmed');
-                  const sg = await wallet.signTransaction(gameTx);
-                  const gs2 = await conn.sendRawTransaction(sg.serialize());
-                  await conn.confirmTransaction(gs2, 'confirmed');
-                  G.approvalRemaining = approveAmount - wagerRaw;
-                  return { ready: true, txSignature: gs2 };
-                }
-              } else {
-                // Sufficient delegation exists — only sign the game tx (no approve popup)
-                console.log('[session] Delegation sufficient ($' + (delegated / 1e6).toFixed(2) + '), skipping approve');
-                const signed = await wallet.signTransaction(gameTx);
-                const gameSig = await conn.sendRawTransaction(signed.serialize());
-                await conn.confirmTransaction(gameSig, 'confirmed');
-                G.approvalRemaining = delegated - wagerRaw;
-                return { ready: true, txSignature: gameSig, skippedApprove: true };
+              if (delegated >= wagerRaw) {
+                console.log('[session] Delegation sufficient ($' + (delegated / 1e6).toFixed(2) + '), no wallet popup needed');
+                G.approvalRemaining = delegated;
+                return { ready: true, skippedApprove: true };
               }
+              // Need approve — single wallet popup
+              const sessionCount = G.sessionGames || 5;
+              const approveAmount = wagerRaw * sessionCount;
+              console.log('[session] Approving $' + (approveAmount / 1e6).toFixed(2) + ' for ' + sessionCount + ' games');
+              const approveTx = await buildApproveTx(approveAmount);
+              const signed = await wallet.signTransaction(approveTx);
+              const sig = await conn.sendRawTransaction(signed.serialize());
+              await conn.confirmTransaction(sig, 'confirmed');
+              G.approvalRemaining = approveAmount;
+              return { ready: true, approveSig: sig };
             } catch (e) {
               return { ready: false, error: friendlyError(e) };
             }
