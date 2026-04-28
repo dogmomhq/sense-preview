@@ -107,7 +107,8 @@
             color: var(--text-primary); padding: 16px; border-radius: 8px;
             font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.3s ease;
         }
-        .mode-btn:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0, 212, 170, 0.2); }
+        .mode-btn:hover:not(:disabled) { border-color: var(--accent); transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0, 212, 170, 0.2); }
+        .mode-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
         .queue-info {
             background: rgba(0, 212, 170, 0.1); border: 1px solid rgba(0, 212, 170, 0.3);
@@ -377,10 +378,17 @@
                 <button class="connect-btn" id="connectBtn">Connect Wallet</button>
 
                 <div class="mode-section" id="modeSection">
-                    <div class="mode-title">Select Game Mode</div>
+                    <div class="mode-title">Select Wager</div>
+                    <div class="tier-grid" style="max-width:400px;margin:0 auto 20px;">
+                        <div class="tier-card" data-tier="1"><div class="tier-amount">$1</div><div class="tier-label">Tier 1</div></div>
+                        <div class="tier-card" data-tier="2"><div class="tier-amount">$10</div><div class="tier-label">Tier 2</div></div>
+                        <div class="tier-card" data-tier="3"><div class="tier-amount">$100</div><div class="tier-label">Tier 3</div></div>
+                        <div class="tier-card" data-tier="4"><div class="tier-amount">$0.10</div><div class="tier-label">Test</div></div>
+                    </div>
+                    <div class="mode-title" style="margin-top:4px;">Play</div>
                     <div class="mode-buttons">
-                        <button class="mode-btn" data-mode="random">🎲 Random Match</button>
-                        <button class="mode-btn" data-mode="friend">👥 Challenge Friend</button>
+                        <button class="mode-btn" data-mode="random" disabled>🎲 Random Match</button>
+                        <button class="mode-btn" data-mode="friend" disabled>👥 Challenge Friend</button>
                     </div>
                     <div class="queue-info">
                         <div class="queue-row"><span>Tier 1 Queue ($1):</span><span class="queue-count">—</span></div>
@@ -405,20 +413,7 @@
             </div>
         </div>
 
-        <!-- SETUP -->
-        <div class="screen" id="setup">
-            <div class="setup-content">
-                <h2 class="setup-title">Select Wager</h2>
-                <p class="setup-subtitle">Choose your stakes</p>
-                <div class="tier-grid">
-                    <div class="tier-card" data-tier="1"><div class="tier-amount">$1</div><div class="tier-label">Tier 1</div></div>
-                    <div class="tier-card" data-tier="2"><div class="tier-amount">$10</div><div class="tier-label">Tier 2</div></div>
-                    <div class="tier-card" data-tier="3"><div class="tier-amount">$100</div><div class="tier-label">Tier 3</div></div>
-                    <div class="tier-card" data-tier="4"><div class="tier-amount">$0.10</div><div class="tier-label">Test</div></div>
-                </div>
-                <button onclick="showScreen('landing')" style="margin-top:8px;padding:12px 32px;background:transparent;border:1px solid var(--border);color:var(--text-secondary);border-radius:8px;cursor:pointer;font-size:14px;">← Back</button>
-            </div>
-        </div>
+        <!-- SETUP screen removed — tier selection is now on landing page -->
 
         <!-- WAITING FOR FRIEND -->
         <div class="screen" id="waiting">
@@ -973,23 +968,22 @@
             // Start/stop history countdown timers
             if (name === 'history') startHistoryTimers();
             else stopHistoryTimers();
-            // Reset interactive state when returning to landing or setup
-            if (name === 'landing' || name === 'setup') {
+            // Reset interactive state when returning to landing
+            if (name === 'landing') {
                 document.querySelectorAll('.tier-card').forEach(c => {
-                    c.style.opacity = '1';
-                    c.style.pointerEvents = 'auto';
                     c.classList.remove('selected');
                 });
+                document.querySelectorAll('.mode-btn').forEach(b => b.disabled = true);
                 G.answered = false;
                 G.onChainGameId = null;
                 G.createTxSig = null;
                 G.joinTxSig = null;
                 G.selectedTier = null;
-            }
-            // Close stale WS when returning to landing (prevents ghost connections)
-            if (name === 'landing' && ws && !G._reconnecting) {
-                ws.close();
-                ws = null;
+                // Close stale WS (prevents ghost connections)
+                if (ws && !G._reconnecting) {
+                    ws.close();
+                    ws = null;
+                }
             }
         }, 300);
     }
@@ -1898,54 +1892,48 @@
     }
 
     // Mode selection
-    document.querySelectorAll('.mode-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            G.selectedMode = e.target.dataset.mode;
-            showScreen('setup');
-        });
-    });
-
-    // Tier selection → create game (challenge) or queue (random)
+    // Tier selection — visual only, enables mode buttons
     document.querySelectorAll('.tier-card').forEach(card => {
-        card.addEventListener('click', async (e) => {
+        card.addEventListener('click', (e) => {
             const target = e.target.closest('.tier-card');
             if (!target) return;
             document.querySelectorAll('.tier-card').forEach(c => c.classList.remove('selected'));
             target.classList.add('selected');
             G.selectedTier = parseInt(target.dataset.tier);
+            // Enable mode buttons now that a tier is selected
+            document.querySelectorAll('.mode-btn').forEach(b => b.disabled = false);
+        });
+    });
 
-            // Generate on-chain game ID (used by server for room + by Solana program)
+    // Mode buttons — trigger game creation after tier is selected
+    document.querySelectorAll('.mode-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            const mode = e.target.dataset.mode;
+            if (!G.selectedTier) return; // safety — buttons should be disabled
+            G.selectedMode = mode;
+
+            // Disable buttons to prevent double-click
+            document.querySelectorAll('.mode-btn').forEach(b => b.disabled = true);
+
             G.onChainGameId = Date.now();
 
-            if (G.selectedMode === 'random') {
-                // ---- RANDOM MATCH MODE ----
-                // For solana: only sign approve upfront (no create_game yet).
-                // After server matches, host creates on-chain, guest joins.
-                // For preview: no on-chain needed at all.
+            if (mode === 'random') {
+                // ---- RANDOM MATCH ----
                 if (window.PaymentAdapter.mode !== 'none') {
-                    target.style.opacity = '0.5';
-                    // Disable ALL tier cards to prevent double-clicks
-                    document.querySelectorAll('.tier-card').forEach(c => c.style.pointerEvents = 'none');
                     try {
-                        // Single popup: approve + create_game bundled together
-                        G.onChainGameId = Date.now();
                         const prep = await window.PaymentAdapter.prepareGame(G.selectedTier, G.onChainGameId, 'host');
                         if (!prep.ready) {
                             showToast(prep.error || 'Failed to prepare game');
-                            target.style.opacity = '1';
-                            document.querySelectorAll('.tier-card').forEach(c => c.style.pointerEvents = 'auto');
+                            document.querySelectorAll('.mode-btn').forEach(b => b.disabled = false);
                             return;
                         }
                         G.createTxSig = prep.txSignature || null;
                         updateApprovalDisplay();
                     } catch (err) {
                         showToast(err.message || 'Game setup failed');
-                        target.style.opacity = '1';
-                        document.querySelectorAll('.tier-card').forEach(c => c.style.pointerEvents = 'auto');
+                        document.querySelectorAll('.mode-btn').forEach(b => b.disabled = false);
                         return;
                     }
-                    target.style.opacity = '1';
-                    document.querySelectorAll('.tier-card').forEach(c => c.style.pointerEvents = 'auto');
                 }
 
                 G.isHost = false;
@@ -1962,30 +1950,22 @@
                 document.getElementById('joinStatus').className = 'connection-status waiting';
                 showScreen('joining');
             } else {
-                // ---- CHALLENGE MODE ----
-                // Sign approve + create_game upfront (host always creates)
+                // ---- CHALLENGE FRIEND ----
                 if (window.PaymentAdapter.mode !== 'none') {
-                    target.style.opacity = '0.5';
-                    // Disable ALL tier cards to prevent double-clicks
-                    document.querySelectorAll('.tier-card').forEach(c => c.style.pointerEvents = 'none');
                     try {
                         const prep = await window.PaymentAdapter.prepareGame(G.selectedTier, G.onChainGameId, 'host');
                         if (!prep.ready) {
-                            alert(prep.error || 'Failed to prepare game');
-                            target.style.opacity = '1';
-                            document.querySelectorAll('.tier-card').forEach(c => c.style.pointerEvents = 'auto');
+                            showToast(prep.error || 'Failed to prepare game');
+                            document.querySelectorAll('.mode-btn').forEach(b => b.disabled = false);
                             return;
                         }
                         G.createTxSig = prep.txSignature || null;
                         updateApprovalDisplay();
                     } catch (err) {
-                        alert(err.message || 'Transaction failed');
-                        target.style.opacity = '1';
-                        document.querySelectorAll('.tier-card').forEach(c => c.style.pointerEvents = 'auto');
+                        showToast(err.message || 'Transaction failed');
+                        document.querySelectorAll('.mode-btn').forEach(b => b.disabled = false);
                         return;
                     }
-                    target.style.opacity = '1';
-                    document.querySelectorAll('.tier-card').forEach(c => c.style.pointerEvents = 'auto');
                 }
 
                 G.isHost = true;
@@ -2000,6 +1980,9 @@
                     });
                 });
             }
+
+            // Re-enable buttons after flow completes (in case user returns to landing)
+            document.querySelectorAll('.mode-btn').forEach(b => b.disabled = false);
         });
     });
 
