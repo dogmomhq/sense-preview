@@ -2794,6 +2794,18 @@
             if (!wallet) return { ready: false, error: 'Wallet not connected' };
             try {
               const wagerRaw = tierToRaw(tier || 1);
+              // Check actual balance before proceeding
+              const conn = getConnection();
+              const ata = await getATA(wallet.publicKey.toBase58(), USDC_MINT);
+              try {
+                const balInfo = await conn.getTokenAccountBalance(ata);
+                const balRaw = parseInt(balInfo.value.amount || '0');
+                if (balRaw < wagerRaw) {
+                  const needed = (wagerRaw / 1e6).toFixed(2);
+                  const have = (balRaw / 1e6).toFixed(2);
+                  return { ready: false, error: 'Insufficient USDC — need $' + needed + ' but have $' + have };
+                }
+              } catch (balErr) { /* ATA might not exist yet */ }
               const delegated = await getDelegatedAmount();
               if (delegated >= wagerRaw) {
                 // Already have enough approval
