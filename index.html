@@ -2814,11 +2814,11 @@
               // Need to approve — approve for sessionGames worth
               const sessionGames = G.sessionGames || 5;
               const approveAmount = wagerRaw * sessionGames;
-              const conn = getConnection();
+              const _ac = getConnection();
               const tx = await buildApproveTx(approveAmount);
               const signed = await wallet.signTransaction(tx);
-              const sig = await conn.sendRawTransaction(signed.serialize());
-              await conn.confirmTransaction(sig, 'confirmed');
+              const sig = await _ac.sendRawTransaction(signed.serialize());
+              await _ac.confirmTransaction(sig, 'confirmed');
               G.approvalRemaining = approveAmount;
               return { ready: true, txSignature: sig };
             } catch (e) {
@@ -2840,11 +2840,11 @@
           async cancelGame(gameId) {
             if (!wallet) return { success: false, error: 'Wallet not connected' };
             try {
-              const conn = getConnection();
+              const _cc = getConnection();
               const tx = await buildCancelGameTx(gameId);
               const signed = await wallet.signTransaction(tx);
-              const sig = await conn.sendRawTransaction(signed.serialize());
-              await conn.confirmTransaction(sig, 'confirmed');
+              const sig = await _cc.sendRawTransaction(signed.serialize());
+              await _cc.confirmTransaction(sig, 'confirmed');
               return { success: true, txSignature: sig };
             } catch (e) {
               return { success: false, error: friendlyError(e) };
