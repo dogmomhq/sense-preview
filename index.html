@@ -311,23 +311,27 @@
         .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(0, 212, 170, 0.3); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; margin-right: 8px; vertical-align: middle; }
         @keyframes spin { to { transform: rotate(360deg); } }
 
-        /* RESULTS */
-        .results-content { text-align: center; max-width: 600px; }
-        .result-banner { font-size: 64px; font-weight: 700; padding: 32px; border-radius: 12px; margin-bottom: 32px; animation: popIn 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55); }
-        @keyframes popIn { 0% { transform: scale(0.5); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
-        .result-banner.win { background: linear-gradient(135deg, rgba(0, 212, 170, 0.2), rgba(0, 212, 170, 0.1)); border: 2px solid var(--win); color: var(--win); }
-        .result-banner.loss { background: linear-gradient(135deg, rgba(255, 71, 87, 0.2), rgba(255, 71, 87, 0.1)); border: 2px solid var(--lose); color: var(--lose); }
-        .result-banner.draw { background: linear-gradient(135deg, rgba(255, 165, 0, 0.2), rgba(255, 165, 0, 0.1)); border: 2px solid var(--draw); color: var(--draw); }
+        /* RESULTS — compact single card */
+        .results-content { text-align: center; max-width: 500px; }
+        .result-banner { font-size: 20px; font-weight: 700; padding: 0; margin-bottom: 4px; animation: popIn 0.3s ease-out; display: inline-block; }
+        @keyframes popIn { 0% { transform: scale(0.8); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+        .result-banner.win { color: var(--win); background: none; border: none; }
+        .result-banner.loss { color: var(--lose); background: none; border: none; }
+        .result-banner.draw { color: var(--draw); background: none; border: none; }
 
-        .result-details { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 12px; padding: 24px; margin-bottom: 32px; text-align: left; }
-        .detail-row { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
+        .result-hero { margin-bottom: 12px; }
+        .result-hero .payout-amount { font-size: 40px; font-weight: 800; margin: 0; line-height: 1.1; }
+        .result-hero .payout-label { font-size: 11px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
+
+        .result-details { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 10px; padding: 12px 16px; margin-bottom: 12px; text-align: left; }
+        .detail-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 13px; }
         .detail-row:last-child { border-bottom: none; }
-        .detail-label { color: var(--text-secondary); }
-        .detail-value { font-weight: 600; color: var(--text-primary); font-family: 'Courier New', monospace; }
+        .detail-label { color: var(--text-secondary); font-size: 12px; }
+        .detail-value { font-weight: 600; color: var(--text-primary); font-family: 'Courier New', monospace; font-size: 12px; }
 
-        .payout-section { background: linear-gradient(135deg, rgba(0, 212, 170, 0.1), rgba(0, 212, 170, 0.05)); border: 1px solid rgba(0, 212, 170, 0.3); border-radius: 12px; padding: 20px; margin-bottom: 32px; }
-        .payout-label { font-size: 12px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
-        .payout-amount { font-size: 36px; font-weight: 700; color: var(--accent); }
+        .payout-section { display: none; }
+        .payout-label { font-size: 11px; }
+        .payout-amount { font-size: 40px; }
 
         .results-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; max-width: 400px; margin: 0 auto; }
         @media (max-width: 500px) { .results-buttons { grid-template-columns: 1fr; } }
@@ -428,7 +432,7 @@
 
         @media (max-width: 600px) {
             .setup-title { font-size: 24px; }
-            .result-banner { font-size: 48px; }
+            .result-banner { font-size: 18px; }
             .question-text { font-size: 16px; }
             .answer-btn { padding: 14px 12px; font-size: 13px; }
         }
@@ -704,16 +708,19 @@
         <!-- RESULTS -->
         <div class="screen" id="results">
             <div class="results-content">
-                <div class="result-banner" id="resultBanner"></div>
-                <div class="result-details" id="resultDetails"></div>
-                <div class="payout-section">
+                <div class="result-hero">
+                    <div class="result-banner" id="resultBanner"></div>
+                    <div class="payout-amount" id="payoutAmount" style="color:var(--accent);">$0.00</div>
                     <div class="payout-label" id="payoutLabel">Prize Winnings</div>
-                    <div class="payout-amount" id="payoutAmount">$0.00</div>
-                    <div class="balance-after" id="balanceAfter" style="margin-top:12px;font-size:14px;color:var(--text-secondary);display:none;">
+                    <div id="balanceAfter" style="font-size:12px;color:var(--text-secondary);margin-top:4px;display:none;">
                         Balance: <span id="newBalance" style="color:var(--accent);font-weight:600;">—</span>
                     </div>
                 </div>
-                <a id="viewSolanaBtn" href="#" target="_blank" style="display:none;text-align:center;color:var(--accent);font-size:13px;text-decoration:none;margin-bottom:16px;opacity:0.7;">View Transaction on Solana ↗</a>
+                <div class="result-details" id="resultDetails"></div>
+                <a id="viewSolanaBtn" href="#" target="_blank" style="display:none;text-align:center;color:var(--accent);font-size:12px;text-decoration:none;margin-bottom:8px;opacity:0.7;">View Settlement on Solscan ↗</a>
+                <div class="payout-section" style="display:none;">
+                    <div class="payout-amount"></div>
+                </div>
                 <div class="results-buttons">
                     <button class="btn-primary" id="playAgainBtn">Play Again</button>
                     <button class="btn-secondary" id="homeBtn">Home</button>
