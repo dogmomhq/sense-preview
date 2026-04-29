@@ -813,16 +813,11 @@
     }
 
     function updateNavVisibility() {
+        // Nav and balance bar are ALWAYS visible — user wants to see live balance during gameplay
         const navBar = document.getElementById('navBar');
         const balEl = document.getElementById('persistentBalance');
-        const hiddenDuringPlay = ['play', 'countdown', 'results', 'waiting', 'joining', 'setup'];
-        if (hiddenDuringPlay.includes(G.screen)) {
-            navBar.classList.add('hidden');
-            if (balEl) balEl.classList.add('hidden');
-        } else {
-            navBar.classList.remove('hidden');
-            if (balEl) balEl.classList.remove('hidden');
-        }
+        navBar.classList.remove('hidden');
+        if (balEl) balEl.classList.remove('hidden');
     }
 
     function goToCreateGame() {
@@ -2785,6 +2780,12 @@
               G.approvalRemaining = approveAmount;
               return { ready: true, txSignature: sig };
             } catch (e) {
+              // "already been processed" = approval tx already confirmed, treat as success
+              if (e.message && e.message.includes('already been processed')) {
+                console.log('[pay] Approval tx already processed — treating as success');
+                try { G.approvalRemaining = await getDelegatedAmount(); } catch {}
+                return { ready: true };
+              }
               return { ready: false, error: friendlyError(e) };
             }
           },
