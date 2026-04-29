@@ -509,6 +509,10 @@
 
                 <button class="connect-btn" id="connectBtn">Connect Wallet</button>
 
+                <div style="text-align: center; margin: 12px 0;">
+                    <button class="btn-secondary" style="width: 100%; max-width: 200px; padding: 12px 20px; font-size: 14px; border: 2px solid var(--border); background: transparent; color: var(--text-secondary); cursor: pointer; border-radius: 8px; transition: all 0.3s;" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--text-primary)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-secondary)'" onclick="playFree()">🎮 Practice Free</button>
+                </div>
+
                 <div id="walletConnectedOnly" style="display: none;">
                     <div class="wallet-stats" id="walletStatsPanel">
                         <div class="wallet-stats-row">
@@ -534,7 +538,7 @@
                     </div>
 
                     <div style="text-align: center; margin-top: 12px;">
-                        <button class="btn-secondary" style="width: 100%; max-width: 200px; padding: 10px 20px; font-size: 13px;" onclick="playFree()">Play Free</button>
+                        <button class="btn-secondary" style="width: 100%; max-width: 200px; padding: 10px 20px; font-size: 13px;" onclick="playFree()">Quick Match (Free)</button>
                     </div>
                 </div>
             </div>
@@ -795,7 +799,72 @@
         tokenMovements: [],
         sessionGames: 5,
         approvalRemaining: 0,
+        // Practice mode state
+        practiceMode: false,
+        practiceHistory: [],      // true=win, false=loss/draw
+        practiceUsedIdx: [],      // avoid question repeats
+        practiceCorrectIdx: null, // correct answer index for current practice question
+        practiceOpponentAnswer: null,
+        practiceOpponentTime: null,
     };
+
+    // ============ PRACTICE QUESTIONS (offline, no server needed) ============
+    const PRACTICE_QUESTIONS = [
+        { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/3/37/African_Bush_Elephant.jpg/500px-African_Bush_Elephant.jpg", options: ["Rhinoceros", "Elephant", "Hippopotamus", "Zebra"], correct: 1 },
+        { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/9/9e/Giraffe_Mikumi_National_Park.jpg/500px-Giraffe_Mikumi_National_Park.jpg", options: ["Zebra", "Giraffe", "Camel", "Ostrich"], correct: 1 },
+        { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/0/07/Emperor_Penguin_Manchot_empereur.jpg", options: ["Puffin", "Penguin", "Duck", "Dolphin"], correct: 1 },
+        { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/8/84/Greater_flamingo_%28Phoenicopterus_roseus%29.jpg/500px-Greater_flamingo_%28Phoenicopterus_roseus%29.jpg", options: ["Parrot", "Flamingo", "Toucan", "Eagle"], correct: 1 },
+        { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/1/10/Tursiops_truncatus_01.jpg/960px-Tursiops_truncatus_01.jpg", options: ["Whale", "Dolphin", "Shark", "Seal"], correct: 1 },
+        { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0d/Kangaroo_and_joey03.jpg/500px-Kangaroo_and_joey03.jpg", options: ["Wallaby", "Kangaroo", "Wombat", "Koala"], correct: 1 },
+        { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3c/Giant_Panda_2004-03-2.jpg/960px-Giant_Panda_2004-03-2.jpg", options: ["Bear", "Panda", "Koala", "Raccoon"], correct: 1 },
+        { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e3/Plains_Zebra_Equus_quagga.jpg/500px-Plains_Zebra_Equus_quagga.jpg", options: ["Horse", "Zebra", "Donkey", "Giraffe"], correct: 1 },
+        { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/5/57/Octopus2.jpg/960px-Octopus2.jpg", options: ["Jellyfish", "Octopus", "Starfish", "Crab"], correct: 1 },
+        { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c5/Peacock_Plumage.jpg/960px-Peacock_Plumage.jpg", options: ["Pheasant", "Peacock", "Turkey", "Crane"], correct: 1 },
+        { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/49/Koala_climbing_tree.jpg/960px-Koala_climbing_tree.jpg", options: ["Lemur", "Koala", "Panda", "Sloth"], correct: 1 },
+        { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5f/Bradypus_variegatus.jpg/960px-Bradypus_variegatus.jpg", options: ["Koala", "Sloth", "Lemur", "Monkey"], correct: 1 },
+        { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/7/72/Igel.JPG/960px-Igel.JPG", options: ["Mouse", "Hedgehog", "Shrew", "Mole"], correct: 1 },
+        { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4b/Hippocampus.jpg/500px-Hippocampus.jpg", options: ["Pipefish", "Seahorse", "Fish", "Shrimp"], correct: 1 },
+        { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/1/11/Ramphastos_toco.jpg", options: ["Parrot", "Toucan", "Woodpecker", "Macaw"], correct: 1 },
+        { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/2/2d/Mountain_Gorilla.jpg/500px-Mountain_Gorilla.jpg", options: ["Chimpanzee", "Gorilla", "Monkey", "Gibbon"], correct: 1 },
+        { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4f/Ursus_maritimus_Steve_Amstrup.jpg/960px-Ursus_maritimus_Steve_Amstrup.jpg", options: ["Grizzly Bear", "Polar Bear", "Panda", "Seal"], correct: 1 },
+        { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/2/23/Bubo_virginianus_06.jpg/500px-Bubo_virginianus_06.jpg", options: ["Hawk", "Owl", "Eagle", "Falcon"], correct: 1 },
+        { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/f/f6/AxolotlBE.jpg", options: ["Salamander", "Axolotl", "Newt", "Tadpole"], correct: 1 },
+        { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/3/32/Ornithorhynchus.jpg/960px-Ornithorhynchus.jpg", options: ["Mongoose", "Platypus", "Otter", "Mole"], correct: 1 },
+        { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/8/83/Porcupine-BioDome.jpg/500px-Porcupine-BioDome.jpg", options: ["Mouse", "Porcupine", "Squirrel", "Mole"], correct: 1 },
+        { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b4/Nine-banded_Armadillo.jpg/960px-Nine-banded_Armadillo.jpg", options: ["Anteater", "Armadillo", "Aardvark", "Badger"], correct: 1 },
+        { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/b/bb/Asterias_rubens.jpg/960px-Asterias_rubens.jpg", options: ["Sea Urchin", "Starfish", "Jellyfish", "Clam"], correct: 1 },
+        { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d0/Ceratotherium_simum.jpg/960px-Ceratotherium_simum.jpg", options: ["Hippopotamus", "Rhinoceros", "Elephant", "Anteater"], correct: 1 },
+        { text: "What animal is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/9/98/Hippo_at_dawn.jpg/960px-Hippo_at_dawn.jpg", options: ["Rhinoceros", "Hippopotamus", "Elephant", "Seal"], correct: 1 },
+    ];
+
+    function getPracticeQuestion() {
+        if (G.practiceUsedIdx.length >= PRACTICE_QUESTIONS.length) G.practiceUsedIdx = [];
+        const available = [];
+        for (let i = 0; i < PRACTICE_QUESTIONS.length; i++) {
+            if (!G.practiceUsedIdx.includes(i)) available.push(i);
+        }
+        const idx = available[Math.floor(Math.random() * available.length)];
+        G.practiceUsedIdx.push(idx);
+        const q = PRACTICE_QUESTIONS[idx];
+        // Shuffle options
+        const shuffled = [...q.options];
+        for (let i = shuffled.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        }
+        const correctIdx = shuffled.indexOf(q.options[q.correct]);
+        return { text: q.text, image: q.image, options: shuffled, correctIdx };
+    }
+
+    function getPracticeDifficulty() {
+        const recent = G.practiceHistory.slice(-10);
+        if (recent.length < 3) return 0.55;
+        const winRate = recent.filter(r => r).length / recent.length;
+        if (winRate > 0.8) return 0.85;
+        if (winRate > 0.7) return 0.70;
+        if (winRate > 0.5) return 0.55;
+        return 0.40;
+    }
 
     let ws = null;
 
@@ -854,31 +923,116 @@
     }
 
     function playFree() {
-        G.selectedMode = 'random';
-        G.selectedTier = 4; // Free tier
-        if (window.PaymentAdapter && window.PaymentAdapter.mode !== 'none') {
-            const target = document.querySelector('[data-tier="4"]');
-            target.style.opacity = '0.5';
-            document.querySelectorAll('.tier-card').forEach(c => c.style.pointerEvents = 'none');
-            window.PaymentAdapter.prepareGame(4, Date.now(), 'host').then(prep => {
-                if (prep.ready) {
-                    G.onChainGameId = Date.now();
-                    G.createTxSig = prep.txSignature || null;
-                    queueForRandomMatch();
-                } else {
-                    showToast(prep.error || 'Setup failed');
+        // If wallet is connected, do a real free match via server
+        if (G.walletConnected) {
+            G.selectedMode = 'random';
+            G.selectedTier = 4; // Free tier
+            if (window.PaymentAdapter && window.PaymentAdapter.mode !== 'none') {
+                const target = document.querySelector('[data-tier="4"]');
+                target.style.opacity = '0.5';
+                document.querySelectorAll('.tier-card').forEach(c => c.style.pointerEvents = 'none');
+                window.PaymentAdapter.prepareGame(4, Date.now(), 'host').then(prep => {
+                    if (prep.ready) {
+                        G.onChainGameId = Date.now();
+                        G.createTxSig = prep.txSignature || null;
+                        queueForRandomMatch();
+                    } else {
+                        showToast(prep.error || 'Setup failed');
+                        target.style.opacity = '1';
+                        document.querySelectorAll('.tier-card').forEach(c => c.style.pointerEvents = 'auto');
+                    }
+                }).catch(err => {
+                    showToast(err.message || 'Setup failed');
                     target.style.opacity = '1';
                     document.querySelectorAll('.tier-card').forEach(c => c.style.pointerEvents = 'auto');
-                }
-            }).catch(err => {
-                showToast(err.message || 'Setup failed');
-                target.style.opacity = '1';
-                document.querySelectorAll('.tier-card').forEach(c => c.style.pointerEvents = 'auto');
-            });
-        } else {
-            G.onChainGameId = Date.now();
-            queueForRandomMatch();
+                });
+            } else {
+                G.onChainGameId = Date.now();
+                queueForRandomMatch();
+            }
+            return;
         }
+        // No wallet — launch offline practice mode
+        startPracticeGame();
+    }
+
+    function startPracticeGame() {
+        G.practiceMode = true;
+        G.selectedMode = 'practice';
+        G.selectedTier = 0;
+        G.asyncMode = false;
+        G.answered = false;
+        G.questionStartTime = null;
+        G.frozenElapsed = null;
+        G.practiceOpponentAnswer = null;
+        G.practiceOpponentTime = null;
+        if (!G.playerName) G.playerName = generatePlayerName();
+        G.opponentName = generatePlayerName();
+
+        clearAllTimers();
+        document.getElementById('countdownOverlay').classList.remove('active');
+
+        const q = getPracticeQuestion();
+        G.practiceCorrectIdx = q.correctIdx;
+
+        // Set up play screen
+        document.getElementById('playerYou').textContent = G.playerName;
+        document.getElementById('playerOpponent').textContent = G.opponentName;
+        document.getElementById('roundIndicator').style.display = 'none';
+        document.getElementById('timerText').textContent = '10.00';
+        document.getElementById('timerCircle').style.strokeDashoffset = '0';
+        document.getElementById('timerText').style.color = 'var(--accent)';
+        document.getElementById('timerCircle').style.stroke = 'var(--accent)';
+        document.getElementById('yourTime').textContent = '0.00s';
+        document.getElementById('theirTime').textContent = '—';
+        document.getElementById('questionText').textContent = '';
+        document.getElementById('imagePlaceholder').innerHTML = '';
+        document.getElementById('answersGrid').innerHTML = '';
+        document.getElementById('waitingMessage').classList.remove('show');
+
+        showScreen('play');
+
+        // Preload image
+        let preloadedImg = null;
+        if (q.image) {
+            preloadedImg = new Image();
+            preloadedImg.src = q.image;
+        }
+
+        // Simulate opponent answer with adaptive difficulty
+        const difficulty = getPracticeDifficulty();
+        const u1 = Math.random(), u2 = Math.random();
+        const gaussian = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+        const oppDelay = Math.max(1500, Math.min(6000, (3500 - difficulty * 1000) + gaussian * 700));
+        const oppCorrect = Math.random() < difficulty;
+        if (oppCorrect) {
+            G.practiceOpponentAnswer = q.correctIdx;
+        } else {
+            const wrong = [0,1,2,3].filter(i => i !== q.correctIdx);
+            G.practiceOpponentAnswer = wrong[Math.floor(Math.random() * wrong.length)];
+        }
+        G.practiceOpponentTime = oppDelay;
+
+        runCountdown(() => {
+            document.getElementById('questionText').textContent = q.text;
+            const imgC = document.getElementById('imagePlaceholder');
+            imgC.innerHTML = '';
+            if (preloadedImg) {
+                preloadedImg.alt = 'Identify this';
+                preloadedImg.draggable = false;
+                preloadedImg.oncontextmenu = e => e.preventDefault();
+                imgC.appendChild(preloadedImg);
+            }
+            const grid = document.getElementById('answersGrid');
+            grid.innerHTML = q.options.map((opt, i) =>
+                `<button class="answer-btn" data-index="${i}">${opt}</button>`
+            ).join('');
+            document.querySelectorAll('.answer-btn').forEach(btn => {
+                btn.addEventListener('click', () => selectAnswer(parseInt(btn.dataset.index)));
+            });
+            G.questionStartTime = Date.now();
+            startTimers();
+        });
     }
 
     function queueForRandomMatch() {
@@ -2001,6 +2155,49 @@
         }
     }
 
+    // PRACTICE MODE RESULTS
+    function showPracticeResults(result, reason, myAnswer, correctIdx, myTime, oppTime) {
+        if (result === 'win') G.stats.wins++;
+        else if (result === 'loss') G.stats.losses++;
+        else G.stats.draws++;
+        document.getElementById('statWins').textContent = G.stats.wins;
+        document.getElementById('statDraws').textContent = G.stats.draws;
+        document.getElementById('statLosses').textContent = G.stats.losses;
+
+        const bannerText = { win: '🎉 YOU WIN', loss: '😔 YOU LOSE', draw: '🤝 DRAW' }[result];
+        document.getElementById('resultBanner').className = 'result-banner ' + (result === 'loss' ? 'loss' : result);
+        document.getElementById('resultBanner').textContent = bannerText;
+
+        var solBtn1 = document.getElementById('viewSolanaBtn');
+        if (solBtn1) solBtn1.style.display = 'none';
+
+        const options = Array.from(document.querySelectorAll('.answer-btn')).map(b => b.textContent);
+        const myAnswerText = myAnswer >= 0 && myAnswer < options.length ? options[myAnswer] : 'Time expired';
+        const correctText = options[correctIdx] || '?';
+        const myCorrect = myAnswer === correctIdx;
+        const wins = G.practiceHistory.filter(r => r).length;
+        const losses = G.practiceHistory.filter(r => !r).length;
+
+        document.getElementById('resultDetails').innerHTML = `
+            <div class="detail-row"><span class="detail-label">Your Answer:</span><span class="detail-value" style="color: ${myCorrect ? 'var(--win)' : 'var(--lose)'}">${myAnswerText}</span></div>
+            <div class="detail-row"><span class="detail-label">Correct Answer:</span><span class="detail-value" style="color: var(--win)">${correctText}</span></div>
+            <div class="detail-row"><span class="detail-label">Your Time:</span><span class="detail-value">${formatTime(myTime)}</span></div>
+            <div class="detail-row"><span class="detail-label">Opponent Time:</span><span class="detail-value">${formatTime(oppTime)}</span></div>
+            <div class="detail-row"><span class="detail-label">Result:</span><span class="detail-value">${getReasonText(reason)}</span></div>
+            <div class="detail-row"><span class="detail-label">Record:</span><span class="detail-value">${wins}W - ${losses}L</span></div>
+        `;
+
+        document.getElementById('payoutLabel').textContent = 'Practice Mode';
+        document.getElementById('payoutAmount').textContent = result === 'win' ? '✓ Correct' : result === 'draw' ? '—' : '✗ Wrong';
+        document.getElementById('payoutAmount').style.color = result === 'win' ? 'var(--win)' : result === 'draw' ? 'var(--draw)' : 'var(--lose)';
+
+        const paBtn = document.getElementById('playAgainBtn');
+        paBtn.textContent = 'Play Again';
+        paBtn.disabled = false;
+
+        showScreen('results');
+    }
+
     // PLAY AGAIN (SHARED)
     async function replayGame() {
         if (!ws || ws.readyState !== WebSocket.OPEN) {
@@ -2058,6 +2255,38 @@
         });
         document.getElementById('waitingMessage').classList.add('show');
 
+        // Practice mode — resolve locally, no server
+        if (G.practiceMode) {
+            const correctIdx = G.practiceCorrectIdx;
+            document.querySelectorAll('.answer-btn').forEach((btn, i) => {
+                if (i === correctIdx) btn.classList.add('correct');
+                if (i === idx && i !== correctIdx) btn.classList.add('wrong');
+            });
+            // Wait briefly then show results
+            const myTime = elapsed;
+            const oppTime = G.practiceOpponentTime;
+            const oppAnswer = G.practiceOpponentAnswer;
+            const myCorrect = idx === correctIdx;
+            const oppCorrect = oppAnswer === correctIdx;
+            let result, reason;
+            if (myCorrect && !oppCorrect) { result = 'win'; reason = 'correct_answer'; }
+            else if (!myCorrect && oppCorrect) { result = 'loss'; reason = 'wrong_answer'; }
+            else if (!myCorrect && !oppCorrect) { result = 'draw'; reason = 'both_wrong'; }
+            else {
+                const diff = Math.abs(myTime - oppTime);
+                if (diff < 50) { result = 'draw'; reason = 'same_speed'; }
+                else if (myTime < oppTime) { result = 'win'; reason = 'faster'; }
+                else { result = 'loss'; reason = 'slower'; }
+            }
+            G.practiceHistory.push(result === 'win');
+            document.getElementById('theirTime').textContent = formatTime(oppTime);
+            setTimeout(() => {
+                clearAllTimers();
+                showPracticeResults(result, reason, idx, correctIdx, myTime, oppTime);
+            }, 800);
+            return;
+        }
+
         if (G.asyncMode) {
             wsSend({ type: 'async-answer', matchId: G.asyncMatchId, answerIndex: idx, clientTime: Math.round(elapsed) });
             if (G.pendingTimeout) clearTimeout(G.pendingTimeout);
@@ -2110,6 +2339,22 @@
                     document.getElementById('yourTime').textContent = formatTime(TIME_LIMIT_MS);
                     document.querySelectorAll('.answer-btn').forEach(btn => { btn.disabled = true; });
                     document.getElementById('waitingMessage').classList.add('show');
+                    // Practice mode auto-resolve on timeout
+                    if (G.practiceMode) {
+                        const correctIdx = G.practiceCorrectIdx;
+                        document.querySelectorAll('.answer-btn').forEach((btn, i) => {
+                            if (i === correctIdx) btn.classList.add('correct');
+                        });
+                        const oppCorrect = G.practiceOpponentAnswer === correctIdx;
+                        const result = oppCorrect ? 'loss' : 'draw';
+                        const reason = oppCorrect ? 'wrong_answer' : 'both_wrong';
+                        G.practiceHistory.push(false);
+                        document.getElementById('theirTime').textContent = formatTime(G.practiceOpponentTime);
+                        setTimeout(() => {
+                            clearAllTimers();
+                            showPracticeResults(result, reason, -1, correctIdx, TIME_LIMIT_MS, G.practiceOpponentTime);
+                        }, 800);
+                    }
                 }
             }
         }, 30);
@@ -2452,11 +2697,17 @@
     });
 
     document.getElementById('playAgainBtn').addEventListener('click', () => {
+        if (G.practiceMode) {
+            startPracticeGame();
+            return;
+        }
         // Always use async queue — cleanest matchmaking for all modes
         replayGame();
     });
 
     document.getElementById('homeBtn').addEventListener('click', () => {
+        G.practiceMode = false;
+        clearAllTimers();
         showScreen('landing');
     });
 
