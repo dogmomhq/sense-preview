@@ -2728,7 +2728,15 @@
                 slotsRemaining,
                 secondsRemaining,
                 canRefund,
+                createTx: null,
               });
+            }
+            // Look up create tx for each stuck game (first signature on the PDA)
+            for (const s of stuck) {
+              try {
+                const sigs = await conn.getSignaturesForAddress(new solanaWeb3.PublicKey(s.pubkey), { limit: 1 }, 'confirmed');
+                if (sigs.length > 0) s.createTx = sigs[0].signature;
+              } catch {}
             }
             return stuck;
           } catch (e) {
