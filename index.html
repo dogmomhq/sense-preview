@@ -2819,8 +2819,24 @@
               const resp = await provider.connect();
               wallet = { publicKey: resp.publicKey, signTransaction: provider.signTransaction.bind(provider), signAllTransactions: provider.signAllTransactions?.bind(provider), provider: provider };
             } catch (e) { throw new Error('Wallet connection rejected'); }
-            const conn = getConnection();
+
+            // Wallet signature authentication — sign a message to prove ownership
             const address = wallet.publicKey.toBase58();
+            try {
+              const authMsg = 'Sense Game Auth: ' + Date.now();
+              const encoded = new TextEncoder().encode(authMsg);
+              const signResult = await provider.signMessage(encoded, 'utf8');
+              const sigBase64 = btoa(String.fromCharCode(...signResult.signature));
+              // Send verification to server
+              if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'verify-wallet', wallet: address, signature: sigBase64, message: authMsg }));
+              }
+            } catch (e) {
+              console.warn('[auth] Wallet signature skipped:', e.message);
+              // Don't block connection if signing fails — server will reject queue attempts
+            }
+
+            const conn = getConnection();
             let balance = '0.00';
             try {
               const ata = await getATA(address, USDC_MINT);
