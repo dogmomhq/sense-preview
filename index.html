@@ -772,6 +772,7 @@
         walletAddress: null,
         onChainGameId: null,
         createTxSig: null,
+        createTxMap: {},  // matchId -> createTx signature
         joinTxSig: null,
         lastSettleTxUrl: null,
         simulatedBalance: 50.00,
@@ -1589,8 +1590,11 @@
                 console.log('[chain] Game created on-chain:', msg.gameId, msg.txSignature);
                 document.getElementById('joinStatus').textContent = 'Game created! Waiting for question...';
                 document.getElementById('joinStatus').className = 'connection-status connected';
+                // Store create tx in the pending match so history shows the link
                 if (msg.txSignature) {
                     G.createTxSig = msg.txSignature;
+                    if (msg.matchId) G.createTxMap[msg.matchId] = msg.txSignature;
+                    else if (G.asyncMatchId) G.createTxMap[G.asyncMatchId] = msg.txSignature;
                     Object.values(G.pendingMatches).forEach(function(pm) {
                         if (!pm.createTx) pm.createTx = msg.txSignature;
                     });
@@ -1615,21 +1619,33 @@
                 refreshAllBalances(2000);
                 break;
             case 'settle-tx':
-                console.log('[chain] Settlement tx:', msg.txSignature, 'game:', msg.gameId);
+                console.log('[chain] Settlement tx:', msg.txSignature, 'game:', msg.gameId, 'match:', msg.matchId);
                 if (msg.txSignature) {
                     var stx = msg.txSignature;
+                    var settleMatchId = msg.matchId;
+                    // Store settle tx in the correct history entry by matchId
+                    var matched = false;
                     for (var si = 0; si < G.matchLog.length; si++) {
-                        var ml = G.matchLog[si];
-                        if (!ml.settleTx) { ml.settleTx = stx; break; }
+                        if (G.matchLog[si].matchId === settleMatchId) {
+                            G.matchLog[si].settleTx = stx;
+                            matched = true;
+                            break;
+                        }
+                    }
+                    if (!matched) {
+                        // Fallback: assign to first entry without settleTx
+                        for (var si2 = 0; si2 < G.matchLog.length; si2++) {
+                            if (!G.matchLog[si2].settleTx) { G.matchLog[si2].settleTx = stx; break; }
+                        }
                     }
                     if (G.screen === 'history') renderHistory();
-                    if (G.screen === 'results') {
-                        var solBtn = document.getElementById('viewSolanaBtn');
-                        if (solBtn) {
-                            solBtn.href = 'https://solscan.io/tx/' + stx + '?cluster=devnet';
-                            solBtn.style.display = 'inline-block';
-                            G.lastSettleTxUrl = solBtn.href;
-                        }
+                    // Update result screen settle link if this is the currently displayed match
+                    var stv = document.getElementById('settleTxValue');
+                    if (stv) {
+                        stv.innerHTML = '<a href="https://solscan.io/tx/' + stx + '?cluster=devnet" target="_blank" style="color:var(--accent);text-decoration:none;font-size:12px;">View on Solscan \u2197</a>';
+                    } else {
+                        // Results screen not rendered yet \u2014 store for when it appears
+                        G.pendingSettleTx = { matchId: settleMatchId, tx: stx };
                     }
                     refreshAllBalances(3000);
                 }
@@ -1887,6 +1903,7 @@
     // ASYNC RESULT HANDLER
     function handleAsyncResult(msg) {
         const matchId = msg.matchId;
+        // Show results if: it's the current match, OR we're on a waiting/joining screen (not mid-question on a different match)
         const isMidQuestion = G.screen === 'play' && !G.answered && G.asyncMatchId !== matchId;
         const isCurrentMatch = !isMidQuestion && (G.screen === 'play' || G.screen === 'results' || G.screen === 'joining' || G.screen === 'landing');
 
@@ -1918,10 +1935,13 @@
             document.getElementById('playerOpponent').textContent = G.opponentName;
             if (msg.opponent.time != null) document.getElementById('theirTime').textContent = formatTime(msg.opponent.time);
 
-            document.querySelectorAll('.answer-btn').forEach((btn, i) => {
-                if (i === msg.correctIdx) btn.classList.add('correct');
-                if (i === msg.you.answer && i !== msg.correctIdx) btn.classList.add('wrong');
-            });
+            // Only highlight buttons if this result is for the question currently on screen
+            if (G.asyncMatchId === matchId) {
+                document.querySelectorAll('.answer-btn').forEach((btn, i) => {
+                    if (i === msg.correctIdx) btn.classList.add('correct');
+                    if (i === msg.you.answer && i !== msg.correctIdx) btn.classList.add('wrong');
+                });
+            }
 
             setTimeout(() => {
                 const bannerText = { win: '🎉 YOU WIN', loss: '😔 YOU LOSE', draw: '🤝 DRAW' }[result];
@@ -1931,11 +1951,14 @@
                 if (solBtn1) { solBtn1.style.display = 'none'; solBtn1.href = '#'; }
                 G.lastSettleTxUrl = null;
 
-                const options = Array.from(document.querySelectorAll('.answer-btn')).map(b => b.textContent);
-                let myAnswerText = 'Time expired';
-                if (msg.you.answer >= 0 && msg.you.answer < options.length) myAnswerText = options[msg.you.answer];
+                const myAnswerText = msg.you.answerText || 'Time expired';
                 const myCorrect = msg.you.answer === msg.correctIdx;
 
+                const isSolanaMode = window.__SENSE_MODE === 'solana';
+                const matchCreateTx = G.createTxMap[matchId] || G.createTxSig;
+                const createTxLink = isSolanaMode && matchCreateTx ? '<div class="detail-row"><span class="detail-label">Funds \u2192 Vault</span><span class="detail-value"><a href="https://solscan.io/tx/' + matchCreateTx + '?cluster=devnet" target="_blank" style="color:var(--accent);text-decoration:none;font-size:12px;">View on Solscan \u2197</a></span></div>' : '';
+                const settleLabel = result === 'win' ? 'Winnings \u2192 Wallet' : result === 'draw' ? 'Refund \u2192 Wallet' : 'Settlement';
+                const settleTxLink = isSolanaMode ? '<div class="detail-row" id="settleTxRow"><span class="detail-label">' + settleLabel + '</span><span class="detail-value" id="settleTxValue" style="font-size:12px;color:var(--text-secondary);">Settling on-chain...</span></div>' : '';
                 document.getElementById('resultDetails').innerHTML = `
                     <div class="detail-row"><span class="detail-label">Your Answer:</span><span class="detail-value" style="color: ${myCorrect ? 'var(--win)' : 'var(--lose)'}">${myAnswerText}</span></div>
                     <div class="detail-row"><span class="detail-label">Correct Answer:</span><span class="detail-value" style="color: var(--win)">${msg.correctAnswer}</span></div>
@@ -1943,6 +1966,8 @@
                     <div class="detail-row"><span class="detail-label">Opponent Time:</span><span class="detail-value">${formatTime(msg.opponent.time)}</span></div>
                     <div class="detail-row"><span class="detail-label">Result:</span><span class="detail-value">${getReasonText(msg.reason)}</span></div>
                     <div class="detail-row"><span class="detail-label">Wager:</span><span class="detail-value">$${wager} USDC</span></div>
+                    ${createTxLink}
+                    ${settleTxLink}
                 `;
 
                 const payoutLabel = result === 'win' ? 'Prize Winnings (3% fee deducted)' : result === 'draw' ? 'Wager Returned' : 'Amount Lost';
@@ -1960,6 +1985,14 @@
                 const asyncWager2 = asyncWagerAmounts2[G.selectedTier] || 1;
                 updateBalanceAfterMatch(result, asyncWager2);
                 showScreen('results');
+                // Apply any settle-tx that arrived before results screen rendered
+                if (G.pendingSettleTx && G.pendingSettleTx.matchId === matchId) {
+                    var pstv = document.getElementById('settleTxValue');
+                    if (pstv) {
+                        pstv.innerHTML = '<a href="https://solscan.io/tx/' + G.pendingSettleTx.tx + '?cluster=devnet" target="_blank" style="color:var(--accent);text-decoration:none;font-size:12px;">View on Solscan ↗</a>';
+                    }
+                    G.pendingSettleTx = null;
+                }
             }, 1200);
         } else {
             const resultWord = result === 'win' ? 'Won' : result === 'loss' ? 'Lost' : 'Draw';
@@ -2147,6 +2180,10 @@
             if (myAnswer >= 0 && myAnswer < options.length) myAnswerText = options[myAnswer];
             const myCorrect = myAnswer === correctIdx;
 
+            const isSolanaMode2 = window.__SENSE_MODE === 'solana';
+            const createTxLink2 = isSolanaMode2 && G.createTxSig ? '<div class="detail-row"><span class="detail-label">Funds \u2192 Vault</span><span class="detail-value"><a href="https://solscan.io/tx/' + G.createTxSig + '?cluster=devnet" target="_blank" style="color:var(--accent);text-decoration:none;font-size:12px;">View on Solscan \u2197</a></span></div>' : '';
+            const settleLabel2 = result === 'win' ? 'Winnings \u2192 Wallet' : result === 'draw' ? 'Refund \u2192 Wallet' : 'Settlement';
+            const settleTxLink2 = isSolanaMode2 ? '<div class="detail-row" id="settleTxRow"><span class="detail-label">' + settleLabel2 + '</span><span class="detail-value" id="settleTxValue" style="font-size:12px;color:var(--text-secondary);">Settling on-chain...</span></div>' : '';
             document.getElementById('resultDetails').innerHTML = `
                 <div class="detail-row"><span class="detail-label">Your Answer:</span><span class="detail-value" style="color: ${myCorrect ? 'var(--win)' : 'var(--lose)'}">${myAnswerText}</span></div>
                 <div class="detail-row"><span class="detail-label">Correct Answer:</span><span class="detail-value" style="color: var(--win)">${correctAnswer}</span></div>
@@ -2154,6 +2191,8 @@
                 <div class="detail-row"><span class="detail-label">Opponent Time:</span><span class="detail-value">${formatTime(oppTime)}</span></div>
                 <div class="detail-row"><span class="detail-label">Result:</span><span class="detail-value">${getReasonText(reason)}</span></div>
                 <div class="detail-row"><span class="detail-label">Wager:</span><span class="detail-value">$${wager} USDC</span></div>
+                ${createTxLink2}
+                ${settleTxLink2}
             `;
 
             const payoutLabel = result === 'win' ? 'Prize Winnings (3% fee deducted)' : result === 'draw' ? 'Wager Returned' : 'Amount Lost';
