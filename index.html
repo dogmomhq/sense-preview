@@ -2387,19 +2387,8 @@
     });
 
     document.getElementById('playAgainBtn').addEventListener('click', () => {
-        if (G.asyncMode) {
-            replayGame();
-        } else {
-            if (ws && ws.readyState === WebSocket.OPEN) {
-                wsSend({ type: 'rematch' });
-                const btn = document.getElementById('playAgainBtn');
-                btn.textContent = 'Waiting for opponent...';
-                btn.disabled = true;
-                btn.dataset.waiting = 'true';
-                return;
-            }
-            showScreen('landing');
-        }
+        // Always use async queue — cleanest matchmaking for all modes
+        replayGame();
     });
 
     document.getElementById('homeBtn').addEventListener('click', () => {
