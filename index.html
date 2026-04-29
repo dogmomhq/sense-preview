@@ -2795,10 +2795,10 @@
             try {
               const wagerRaw = tierToRaw(tier || 1);
               // Check actual balance before proceeding
-              const conn = getConnection();
+              const _bc = getConnection();
               const ata = await getATA(wallet.publicKey.toBase58(), USDC_MINT);
               try {
-                const balInfo = await conn.getTokenAccountBalance(ata);
+                const balInfo = await _bc.getTokenAccountBalance(ata);
                 const balRaw = parseInt(balInfo.value.amount || '0');
                 if (balRaw < wagerRaw) {
                   const needed = (wagerRaw / 1e6).toFixed(2);
