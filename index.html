@@ -199,8 +199,7 @@
             text-align: right; white-space: nowrap;
         }
 
-        .tier-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 32px; transition: grid-template-columns 0.3s ease; }
-        .tier-grid.has-selected { grid-template-columns: 1.3fr 1fr 1fr 1fr; }
+        .tier-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 32px; }
 
         .tier-card {
             background: linear-gradient(145deg, #1a2940, #15203a);
@@ -2720,12 +2719,6 @@
             document.querySelectorAll('.tier-card').forEach(c => c.classList.remove('selected'));
             target.classList.add('selected');
             G.selectedTier = parseInt(target.dataset.tier);
-            // Reorder: selected card goes first, grid gets wider first column
-            const grid = target.closest('.tier-grid');
-            if (grid) {
-                grid.classList.add('has-selected');
-                grid.insertBefore(target, grid.firstChild);
-            }
         });
     });
 
