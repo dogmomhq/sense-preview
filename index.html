@@ -1778,8 +1778,17 @@
             }, 20000);
             // Re-send wallet verification on every new WS connection
             if (G._walletAuth) {
+                // Store callback — will fire when verify-wallet-result arrives
+                G._wsVerifyCallback = callback;
                 ws.send(JSON.stringify({ type: 'verify-wallet', ...G._walletAuth }));
-                setTimeout(callback, 100);
+                // Fallback timeout in case server doesn't respond
+                setTimeout(() => {
+                    if (G._wsVerifyCallback) {
+                        console.warn('[auth] Verify timeout — proceeding anyway');
+                        G._wsVerifyCallback = null;
+                        callback();
+                    }
+                }, 3000);
             } else {
                 callback();
             }
@@ -1992,6 +2001,12 @@
                 } else {
                     console.error('[auth] Wallet verification failed:', msg.error);
                     showToast('Wallet verification failed — reconnect wallet');
+                }
+                // Fire pending callback from connectWS
+                if (G._wsVerifyCallback) {
+                    var cb = G._wsVerifyCallback;
+                    G._wsVerifyCallback = null;
+                    cb();
                 }
                 break;
         }
