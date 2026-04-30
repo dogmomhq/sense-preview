@@ -893,6 +893,7 @@
         playerName: null,
         opponentName: null,
         selectedTier: null,
+        freeMode: false,
         selectedMode: null,
         isHost: false,
         gameId: null,
@@ -1036,7 +1037,8 @@
         // If wallet is connected, do a real free match via server — but NO chain calls
         if (G.walletConnected) {
             G.selectedMode = 'random';
-            G.selectedTier = 4; // Free tier — never touch PaymentAdapter
+            G.selectedTier = 4;
+            G.freeMode = true; // Flag: skip PaymentAdapter entirely
             G.onChainGameId = null;
             G.createTxSig = null;
             queueForRandomMatch();
@@ -1128,13 +1130,12 @@
     function queueForRandomMatch() {
         G.isHost = false;
         G.asyncMode = true;
-        var isFree = G.selectedTier === 4;
         connectWS(() => {
             wsSend({
                 type: 'queue', name: G.playerName, tier: G.selectedTier,
                 wallet: G.walletAddress || null,
-                paymentMode: isFree ? 'none' : ((window.PaymentAdapter && window.PaymentAdapter.mode) || 'none'),
-                onChainGameId: isFree ? null : (G.onChainGameId || null),
+                paymentMode: G.freeMode ? 'none' : ((window.PaymentAdapter && window.PaymentAdapter.mode) || 'none'),
+                onChainGameId: G.freeMode ? null : (G.onChainGameId || null),
             });
         });
         document.getElementById('joinStatus').textContent = 'Finding a match...';
@@ -2363,19 +2364,12 @@
     }
 
     async function doReplayQueue() {
-        var isFree = G.selectedTier === 4;
-        var payMode = isFree ? 'none' : ((window.PaymentAdapter && window.PaymentAdapter.mode) || 'none');
-        console.log('[replay] tier=' + G.selectedTier + ' isFree=' + isFree + ' payMode=' + payMode);
+        var payMode = G.freeMode ? 'none' : ((window.PaymentAdapter && window.PaymentAdapter.mode) || 'none');
+        console.log('[replay] tier=' + G.selectedTier + ' freeMode=' + G.freeMode + ' payMode=' + payMode);
 
-        if (!isFree && window.PaymentAdapter && window.PaymentAdapter.mode !== 'none') {
+        if (!G.freeMode && window.PaymentAdapter && window.PaymentAdapter.mode !== 'none') {
             try {
                 G.onChainGameId = Date.now();
-                // Force fresh delegation read before prepareGame
-                if (window.PaymentAdapter._getDelegatedAmount) {
-                    var freshDelegation = await window.PaymentAdapter._getDelegatedAmount();
-                    G.approvalRemaining = freshDelegation;
-                    console.log('[replay] Fresh delegation before prepare:', freshDelegation);
-                }
                 const prep = await window.PaymentAdapter.prepareGame(G.selectedTier, G.onChainGameId, 'host');
                 console.log('[replay] prepareGame result:', JSON.stringify(prep));
                 if (!prep.ready) {
@@ -2391,7 +2385,7 @@
                 showScreen('landing');
                 return;
             }
-        } else if (isFree) {
+        } else if (G.freeMode) {
             G.onChainGameId = null;
             G.createTxSig = null;
         }
@@ -2401,7 +2395,7 @@
             type: 'queue', name: G.playerName, tier: G.selectedTier,
             wallet: G.walletAddress || null,
             paymentMode: payMode,
-            onChainGameId: isFree ? null : (G.onChainGameId || null),
+            onChainGameId: G.freeMode ? null : (G.onChainGameId || null),
         });
         document.getElementById('joinStatus').textContent = 'Finding a match...';
         document.getElementById('joinStatus').className = 'connection-status waiting';
@@ -2762,6 +2756,7 @@
         card.addEventListener('click', (e) => {
             const target = e.target.closest('.tier-card');
             if (!target) return;
+            G.freeMode = false; // Clicking a tier card = paid game
             document.querySelectorAll('.tier-card').forEach(c => c.classList.remove('selected'));
             target.classList.add('selected');
             G.selectedTier = parseInt(target.dataset.tier);
