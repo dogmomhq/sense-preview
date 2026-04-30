@@ -33,12 +33,10 @@
         body::before {
             content: ''; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
             background:
-                linear-gradient(45deg, rgba(255,255,255,0.025) 25%, transparent 25%),
-                linear-gradient(-45deg, rgba(255,255,255,0.025) 25%, transparent 25%),
-                linear-gradient(45deg, transparent 75%, rgba(255,255,255,0.025) 75%),
-                linear-gradient(-45deg, transparent 75%, rgba(255,255,255,0.025) 75%);
-            background-size: 120px 120px;
-            background-position: 0 0, 0 60px, 60px -60px, -60px 0px;
+                linear-gradient(135deg, transparent 15%, rgba(150,180,220,0.03) 15%, rgba(150,180,220,0.03) 30%, transparent 30%),
+                linear-gradient(135deg, transparent 45%, rgba(150,180,220,0.025) 45%, rgba(150,180,220,0.025) 65%, transparent 65%),
+                linear-gradient(135deg, transparent 72%, rgba(150,180,220,0.02) 72%, rgba(150,180,220,0.02) 88%, transparent 88%);
+            background-size: 100% 100%;
             pointer-events: none; z-index: 0;
         }
         .container, .nav-bar, .preview-badge, .persistent-balance, .toast, .countdown-overlay { position: relative; z-index: 1; }
