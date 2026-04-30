@@ -40,7 +40,7 @@
         .container, .nav-bar, .preview-badge, .persistent-balance, .toast, .countdown-overlay, .landing-top-bar { position: relative; z-index: 1; }
 
         @media (min-width: 769px) {
-            body { padding-bottom: 0; padding-top: 60px; }
+            body { padding-bottom: 0; padding-top: 126px; }
         }
 
         #play, #history, #landing, #leaderboard, #challenge-tab, #profile { overflow-y: auto; align-items: flex-start; }
@@ -79,7 +79,7 @@
         }
 
         @media (min-width: 769px) {
-            .nav-bar { top: 0; height: 56px; border-bottom: 1px solid var(--border); border-top: none;
+            .nav-bar { top: 70px; height: 56px; border-bottom: 1px solid var(--border); border-top: none;
                 padding: 0 20px; justify-content: flex-start; gap: 12px; }
             .nav-bar.hidden { display: none; }
         }
@@ -1530,12 +1530,14 @@
         fetch(httpUrl + '/api/leaderboard?mode=' + currentLbMode + '&limit=20')
             .then(function(r) { return r.json(); })
             .then(function(data) {
-                if (!data.leaderboard || !data.leaderboard.length) {
+                // Server returns raw array, normalize
+                var players = Array.isArray(data) ? data : (data.leaderboard || []);
+                if (!players.length) {
                     container.innerHTML = '<div style="text-align:center;color:var(--text-secondary);padding:40px;">No players yet. Be the first!</div>';
                     return;
                 }
                 var html = '<table class="lb-table"><thead><tr><th>#</th><th>Player</th><th>W</th><th>L</th><th>Net P&L</th></tr></thead><tbody>';
-                data.leaderboard.forEach(function(p, i) {
+                players.forEach(function(p, i) {
                     var displayName = p.username || p.name;
                     var pnl = (p.net_pnl / 100).toFixed(2);
                     var pnlClass = p.net_pnl >= 0 ? 'lb-pnl-pos' : 'lb-pnl-neg';
