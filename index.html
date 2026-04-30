@@ -8,21 +8,22 @@
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
         :root {
-            --bg-primary: #0a0a1a;
-            --bg-secondary: #1a1a2e;
-            --accent: #00d4aa;
-            --accent-dark: #00b895;
+            --bg-primary: #0b1120;
+            --bg-secondary: #131d32;
+            --accent: #00c8ff;
+            --accent-dark: #00a0d4;
+            --accent-glow: rgba(0, 200, 255, 0.25);
             --win: #00d4aa;
             --lose: #ff4757;
             --draw: #ffa502;
             --text-primary: #ffffff;
-            --text-secondary: #b0b0c0;
-            --border: #2a2a3e;
+            --text-secondary: #7a8ba5;
+            --border: #1e2d45;
         }
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, var(--bg-primary) 0%, #0f0f25 100%);
+            background: linear-gradient(160deg, #0b1120 0%, #0e1a30 40%, #111f3a 100%);
             color: var(--text-primary);
             overflow: hidden;
             height: 100vh;
@@ -55,18 +56,18 @@
         .nav-bar {
             position: fixed; left: 0; right: 0;
             display: flex; justify-content: space-around; align-items: center;
-            background: rgba(26, 26, 46, 0.95); border-top: 1px solid var(--border);
-            backdrop-filter: blur(8px); z-index: 150;
+            background: rgba(11, 17, 32, 0.95); border-top: 1px solid var(--border);
+            backdrop-filter: blur(12px); z-index: 150;
             padding: 0; gap: 0;
         }
 
         @media (max-width: 768px) {
-            .nav-bar { bottom: 0; height: 70px; flex-direction: row; }
+            .nav-bar { bottom: 0; height: 64px; flex-direction: row; }
             .nav-bar.hidden { display: none; }
         }
 
         @media (min-width: 769px) {
-            .nav-bar { top: 0; height: 60px; border-bottom: 1px solid var(--border); border-top: none;
+            .nav-bar { top: 0; height: 56px; border-bottom: 1px solid var(--border); border-top: none;
                 padding: 0 20px; justify-content: flex-start; gap: 12px; }
             .nav-bar.hidden { display: none; }
         }
@@ -74,8 +75,9 @@
         .nav-item {
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             background: none; border: none; cursor: pointer; color: var(--text-secondary);
-            transition: all 0.3s ease; padding: 8px 12px; font-size: 11px; font-weight: 600;
+            transition: all 0.3s ease; padding: 8px 12px; font-size: 10px; font-weight: 600;
             text-transform: uppercase; letter-spacing: 0.5px; position: relative;
+            gap: 3px;
         }
 
         @media (min-width: 769px) {
@@ -83,17 +85,17 @@
                 border-radius: 6px; }
         }
 
-        .nav-item svg { width: 24px; height: 24px; stroke-width: 1.5; }
+        .nav-item svg { width: 22px; height: 22px; stroke-width: 1.5; }
 
         .nav-item.active {
             color: var(--accent);
         }
 
         @media (min-width: 769px) {
-            .nav-item.active { background: rgba(0, 212, 170, 0.1); }
+            .nav-item.active { background: rgba(0, 200, 255, 0.08); }
         }
 
-        .nav-label { display: none; }
+        .nav-label { display: block; }
         @media (min-width: 769px) {
             .nav-label { display: inline; }
         }
@@ -118,11 +120,11 @@
 
         @media (max-width: 768px) {
             .persistent-balance {
-                position: fixed; bottom: 70px; left: 0; right: 0;
+                position: fixed; bottom: 64px; left: 0; right: 0;
                 justify-content: center; gap: 6px;
-                background: rgba(26, 26, 46, 0.95); border-top: 1px solid var(--border);
+                background: rgba(11, 17, 32, 0.95); border-top: 1px solid var(--border);
                 padding: 5px 12px; margin-left: 0; font-size: 11px;
-                z-index: 149; backdrop-filter: blur(8px);
+                z-index: 149; backdrop-filter: blur(12px);
             }
         }
 
@@ -132,40 +134,58 @@
         .landing-top-bar {
             display: flex; justify-content: space-between; align-items: center;
             background: var(--bg-secondary); border: 1px solid var(--border);
-            border-radius: 12px; padding: 16px; margin-bottom: 24px;
+            border-radius: 16px; padding: 14px 18px; margin-bottom: 28px;
+            gap: 12px;
         }
 
+        .landing-top-bar .wallet-icon {
+            width: 32px; height: 32px; background: rgba(0, 200, 255, 0.15);
+            border-radius: 10px; display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+        }
+        .landing-top-bar .wallet-icon svg { width: 18px; height: 18px; stroke: var(--accent); }
+
         .landing-top-bar .username-display {
-            color: var(--accent); font-size: 14px; font-weight: 600;
-            flex: 1; text-align: left;
+            color: var(--text-primary); font-size: 13px; font-weight: 600;
+            flex: 1; text-align: left; font-family: 'Courier New', monospace;
         }
 
         .landing-top-bar .balance-display {
-            color: var(--accent); font-size: 14px; font-weight: 600;
-            text-align: right;
+            color: var(--accent); font-size: 13px; font-weight: 600;
+            text-align: right; white-space: nowrap;
         }
 
-        .tier-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+        .tier-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 20px; }
 
         .tier-card {
             background: var(--bg-secondary); border: 2px solid var(--border);
-            border-radius: 12px; padding: 12px 8px; cursor: pointer;
+            border-radius: 14px; padding: 14px 6px; cursor: pointer;
             transition: all 0.3s ease; position: relative; overflow: hidden;
-            min-height: 70px; display: flex; flex-direction: column;
+            min-height: 64px; display: flex; flex-direction: column;
             justify-content: center; align-items: center;
         }
         .tier-card::before {
             content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(0, 212, 170, 0.2), transparent);
+            background: linear-gradient(90deg, transparent, rgba(0, 200, 255, 0.15), transparent);
             transition: left 0.5s ease;
         }
-        .tier-card:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0, 212, 170, 0.15); }
+        .tier-card:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: 0 4px 16px var(--accent-glow); }
         .tier-card:hover::before { left: 100%; }
-        .tier-card.selected { border-color: var(--accent); background: linear-gradient(135deg, rgba(0, 212, 170, 0.1), rgba(0, 212, 170, 0.05)); box-shadow: 0 8px 20px rgba(0, 212, 170, 0.2); }
+        .tier-card.selected { border-color: var(--accent); background: linear-gradient(135deg, rgba(0, 200, 255, 0.08), rgba(0, 200, 255, 0.03)); box-shadow: 0 0 20px var(--accent-glow), inset 0 0 20px rgba(0, 200, 255, 0.05); }
 
-        .tier-amount { font-size: 24px; font-weight: 700; color: var(--accent); margin-bottom: 2px; }
-        .tier-count { font-size: 11px; color: var(--text-secondary); letter-spacing: 0.3px; }
-        .wallet-stats { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; margin-bottom: 16px; }
+        .tier-amount { font-size: 20px; font-weight: 700; color: var(--text-primary); margin-bottom: 2px; }
+        .tier-card.selected .tier-amount { color: var(--accent); }
+        .tier-count { font-size: 10px; color: var(--text-secondary); letter-spacing: 0.3px; }
+        .tier-card.selected .tier-count { color: var(--accent); }
+
+        .tier-check {
+            position: absolute; top: 6px; right: 6px; width: 16px; height: 16px;
+            background: rgba(0, 200, 255, 0.15); border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .tier-check svg { width: 10px; height: 10px; stroke: var(--accent); stroke-width: 2.5; }
+
+        .wallet-stats { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; margin-bottom: 20px; }
         .wallet-stats-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; }
         .wallet-stats-label { font-size: 12px; color: var(--text-secondary); }
         .wallet-stats-value { font-size: 14px; font-weight: 600; color: var(--text-primary); font-family: 'Courier New', monospace; }
@@ -175,13 +195,32 @@
 
         .connect-btn {
             background: linear-gradient(135deg, var(--accent), var(--accent-dark));
-            border: none; color: #000; padding: 12px 32px; border-radius: 8px;
-            font-size: 14px; font-weight: 600; cursor: pointer;
+            border: none; color: #000; padding: 14px 32px; border-radius: 30px;
+            font-size: 15px; font-weight: 700; cursor: pointer;
             transition: all 0.3s ease; margin-bottom: 16px;
-            width: 100%; max-width: 300px;
+            width: 100%; max-width: 300px; letter-spacing: 0.5px;
         }
-        .connect-btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0, 212, 170, 0.4); }
+        .connect-btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 8px 24px var(--accent-glow); }
         .connect-btn:disabled { opacity: 0.6; cursor: not-allowed; display: none; }
+
+        .play-now-btn {
+            background: #f0ece4; border: none; color: #0b1120;
+            padding: 16px 48px; border-radius: 30px;
+            font-size: 17px; font-weight: 800; cursor: pointer;
+            transition: all 0.3s ease; margin: 8px 0 12px;
+            width: 100%; max-width: 320px; letter-spacing: 1px;
+            text-transform: uppercase;
+            box-shadow: 0 4px 16px rgba(240, 236, 228, 0.15), 0 2px 4px rgba(0,0,0,0.3);
+        }
+        .play-now-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(240, 236, 228, 0.25), 0 4px 8px rgba(0,0,0,0.3); }
+
+        .play-free-btn {
+            background: transparent; border: 2px solid var(--border);
+            color: var(--text-secondary); padding: 12px 32px; border-radius: 30px;
+            font-size: 14px; font-weight: 600; cursor: pointer;
+            transition: all 0.3s ease; width: 100%; max-width: 280px;
+        }
+        .play-free-btn:hover { border-color: var(--accent); color: var(--text-primary); }
 
         /* SETUP */
         .setup-content { text-align: center; max-width: 600px; }
@@ -193,18 +232,18 @@
         .challenge-title { font-size: 28px; font-weight: 700; margin-bottom: 24px; }
         .challenge-btn {
             background: linear-gradient(135deg, var(--accent), var(--accent-dark));
-            border: none; color: #000; padding: 14px 32px; border-radius: 8px;
-            font-size: 15px; font-weight: 600; cursor: pointer;
+            border: none; color: #0b1120; padding: 14px 32px; border-radius: 30px;
+            font-size: 15px; font-weight: 700; cursor: pointer;
             transition: all 0.3s ease; width: 100%; max-width: 300px; margin-bottom: 16px;
         }
-        .challenge-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0, 212, 170, 0.4); }
+        .challenge-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 24px var(--accent-glow); }
 
         /* PROFILE TAB */
         .profile-content { text-align: center; max-width: 500px; padding: 20px; margin: auto; }
         .profile-title { font-size: 28px; font-weight: 700; margin-bottom: 24px; }
         .profile-section {
             background: var(--bg-secondary); border: 1px solid var(--border);
-            border-radius: 12px; padding: 16px; margin-bottom: 16px; text-align: left;
+            border-radius: 14px; padding: 16px; margin-bottom: 14px; text-align: left;
         }
         .profile-label { font-size: 12px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
         .profile-value { font-size: 14px; color: var(--text-primary); word-break: break-all; font-family: 'Courier New', monospace; margin-bottom: 8px; }
@@ -230,17 +269,17 @@
         .waiting-subtitle { font-size: 14px; color: var(--text-secondary); margin-bottom: 32px; }
         .share-link-box {
             background: var(--bg-secondary); border: 1px solid var(--border);
-            border-radius: 12px; padding: 20px; margin-bottom: 24px; word-break: break-all;
+            border-radius: 14px; padding: 20px; margin-bottom: 24px; word-break: break-all;
         }
         .share-link-label { font-size: 11px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
         .share-link-url { font-family: 'Courier New', monospace; font-size: 13px; color: var(--accent); line-height: 1.6; }
         .copy-btn {
             background: linear-gradient(135deg, var(--accent), var(--accent-dark));
-            border: none; color: #000; padding: 12px 32px; border-radius: 8px;
-            font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.3s ease;
+            border: none; color: #0b1120; padding: 12px 32px; border-radius: 30px;
+            font-size: 14px; font-weight: 700; cursor: pointer; transition: all 0.3s ease;
             width: 100%; max-width: 300px; margin-bottom: 16px;
         }
-        .copy-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0, 212, 170, 0.4); }
+        .copy-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 24px var(--accent-glow); }
         .cancel-link { color: var(--lose); cursor: pointer; font-size: 13px; text-decoration: underline; border: none; background: none; }
 
         .loader { display: inline-block; margin-bottom: 24px; }
@@ -254,25 +293,25 @@
             font-size: 12px; font-weight: 600; margin-bottom: 24px;
         }
         .connection-status.waiting { background: rgba(255, 165, 0, 0.2); color: var(--draw); border: 1px solid rgba(255, 165, 0, 0.4); }
-        .connection-status.connected { background: rgba(0, 212, 170, 0.2); color: var(--accent); border: 1px solid rgba(0, 212, 170, 0.4); }
+        .connection-status.connected { background: rgba(0, 200, 255, 0.1); color: var(--accent); border: 1px solid rgba(0, 200, 255, 0.3); }
 
         /* COUNTDOWN */
         .countdown-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: #0a0a1a; display: flex; flex-direction: column;
+            background: #0b1120; display: flex; flex-direction: column;
             align-items: center; justify-content: center; z-index: 200;
             opacity: 0; pointer-events: none; transition: opacity 0.3s ease;
         }
         .countdown-overlay.active { opacity: 1; pointer-events: auto; }
-        .countdown-number { font-size: 120px; font-weight: 700; color: var(--accent); animation: countPulse 0.8s ease-out; text-shadow: 0 0 60px rgba(0, 212, 170, 0.5); }
+        .countdown-number { font-size: 120px; font-weight: 700; color: var(--accent); animation: countPulse 0.8s ease-out; text-shadow: 0 0 60px var(--accent-glow); }
         .countdown-label { font-size: 18px; color: var(--text-secondary); margin-top: 16px; text-transform: uppercase; letter-spacing: 2px; }
         @keyframes countPulse { 0% { transform: scale(1.8); opacity: 0; } 50% { transform: scale(1); opacity: 1; } 100% { transform: scale(0.95); opacity: 1; } }
 
         /* PLAY */
         .play-content { width: 100%; max-width: 700px; padding-bottom: 16px; }
         .players-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
-        .player-card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px; padding: 6px 8px; text-align: center; }
-        .player-card.you { border-color: var(--accent); }
+        .player-card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 12px; padding: 6px 8px; text-align: center; }
+        .player-card.you { border-color: var(--accent); box-shadow: 0 0 12px rgba(0, 200, 255, 0.1); }
         .player-label { font-size: 10px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px; }
         .player-name { font-size: 12px; font-family: 'Courier New', monospace; color: var(--text-primary); word-break: break-all; }
 
@@ -288,27 +327,27 @@
         .time-value { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; font-family: 'Courier New', monospace; color: var(--text-primary); }
         .time-value.accent { color: var(--accent); }
 
-        .question-card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 10px; padding: 14px; margin-bottom: 10px; text-align: center; }
+        .question-card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 14px; padding: 14px; margin-bottom: 10px; text-align: center; }
         .question-text { font-size: 17px; font-weight: 600; line-height: 1.4; }
         .image-placeholder { border-radius: 8px; margin: 8px 0 0 0; text-align: center; min-height: 0; }
-        .image-placeholder img { max-width: 100%; max-height: min(200px, 25vh); border-radius: 8px; object-fit: contain; background: rgba(0, 212, 170, 0.05); border: 1px solid var(--border); }
+        .image-placeholder img { max-width: 100%; max-height: min(200px, 25vh); border-radius: 8px; object-fit: contain; background: rgba(0, 200, 255, 0.03); border: 1px solid var(--border); }
 
         .answers-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
         .answer-btn {
             background: var(--bg-secondary); border: 2px solid var(--border);
-            color: var(--text-primary); padding: 14px 12px; border-radius: 8px;
+            color: var(--text-primary); padding: 14px 12px; border-radius: 12px;
             font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s ease;
             position: relative; overflow: hidden;
         }
         .answer-btn:hover:not(:disabled) { border-color: var(--accent); transform: translateY(-2px); }
-        .answer-btn.selected { border-color: var(--accent); background: linear-gradient(135deg, rgba(0, 212, 170, 0.15), rgba(0, 212, 170, 0.05)); box-shadow: inset 0 0 12px rgba(0, 212, 170, 0.2); }
+        .answer-btn.selected { border-color: var(--accent); background: linear-gradient(135deg, rgba(0, 200, 255, 0.12), rgba(0, 200, 255, 0.04)); box-shadow: 0 0 16px rgba(0, 200, 255, 0.15); }
         .answer-btn:disabled { cursor: not-allowed; }
         .answer-btn.correct { border-color: var(--win); background: linear-gradient(135deg, rgba(0, 212, 170, 0.2), rgba(0, 212, 170, 0.1)); }
         .answer-btn.wrong { border-color: var(--lose); background: linear-gradient(135deg, rgba(255, 71, 87, 0.2), rgba(255, 71, 87, 0.1)); }
 
-        .waiting-message { text-align: center; padding: 14px; background: rgba(0, 212, 170, 0.1); border: 1px solid rgba(0, 212, 170, 0.3); border-radius: 8px; color: var(--accent); font-size: 14px; font-weight: 500; display: none; }
+        .waiting-message { text-align: center; padding: 14px; background: rgba(0, 200, 255, 0.08); border: 1px solid rgba(0, 200, 255, 0.25); border-radius: 12px; color: var(--accent); font-size: 14px; font-weight: 500; display: none; }
         .waiting-message.show { display: block; }
-        .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(0, 212, 170, 0.3); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; margin-right: 8px; vertical-align: middle; }
+        .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(0, 200, 255, 0.2); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; margin-right: 8px; vertical-align: middle; }
         @keyframes spin { to { transform: rotate(360deg); } }
 
         /* RESULTS — compact single card */
@@ -323,7 +362,7 @@
         .result-hero .payout-amount { font-size: 40px; font-weight: 800; margin: 0; line-height: 1.1; }
         .result-hero .payout-label { font-size: 11px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
 
-        .result-details { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 10px; padding: 12px 16px; margin-bottom: 12px; text-align: left; }
+        .result-details { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 14px; padding: 12px 16px; margin-bottom: 12px; text-align: left; }
         .detail-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 13px; }
         .detail-row:last-child { border-bottom: none; }
         .detail-label { color: var(--text-secondary); font-size: 12px; }
@@ -335,9 +374,9 @@
 
         .results-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; max-width: 400px; margin: 0 auto; }
         @media (max-width: 500px) { .results-buttons { grid-template-columns: 1fr; } }
-        .btn-primary { background: linear-gradient(135deg, var(--accent), var(--accent-dark)); border: none; color: #000; padding: 14px 24px; border-radius: 8px; font-size: 15px; font-weight: 700; cursor: pointer; transition: all 0.3s ease; }
-        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0, 212, 170, 0.4); }
-        .btn-secondary { background: var(--bg-secondary); border: 2px solid var(--border); color: var(--text-primary); padding: 12px 24px; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; transition: all 0.3s ease; }
+        .btn-primary { background: linear-gradient(135deg, var(--accent), var(--accent-dark)); border: none; color: #0b1120; padding: 14px 24px; border-radius: 30px; font-size: 15px; font-weight: 700; cursor: pointer; transition: all 0.3s ease; }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 24px var(--accent-glow); }
+        .btn-secondary { background: var(--bg-secondary); border: 2px solid var(--border); color: var(--text-primary); padding: 12px 24px; border-radius: 30px; font-size: 15px; font-weight: 600; cursor: pointer; transition: all 0.3s ease; }
         .btn-secondary:hover { border-color: var(--accent); transform: translateY(-2px); }
 
         /* HISTORY */
@@ -346,7 +385,7 @@
         .history-empty { text-align: center; color: var(--text-secondary); padding: 40px 20px; font-size: 14px; }
         .history-card {
             background: var(--bg-secondary); border: 1px solid var(--border);
-            border-radius: 10px; margin-bottom: 10px; overflow: hidden; cursor: pointer;
+            border-radius: 14px; margin-bottom: 10px; overflow: hidden; cursor: pointer;
             transition: border-color 0.2s;
         }
         .history-card:hover { border-color: var(--accent); }
@@ -404,7 +443,7 @@
             cursor: pointer; border: 1px solid var(--border); background: transparent;
             color: var(--text-secondary); transition: all 0.3s;
         }
-        .leaderboard-tab.active { background: var(--accent); color: #000; border-color: var(--accent); }
+        .leaderboard-tab.active { background: var(--accent); color: #0b1120; border-color: var(--accent); }
         .lb-table { width: 100%; border-collapse: collapse; }
         .lb-table th {
             text-align: left; padding: 10px 12px; font-size: 11px; text-transform: uppercase;
@@ -413,7 +452,7 @@
         .lb-table td {
             padding: 12px; font-size: 14px; border-bottom: 1px solid rgba(42,42,62,0.3);
         }
-        .lb-table tr:hover td { background: rgba(0, 212, 170, 0.05); }
+        .lb-table tr:hover td { background: rgba(0, 200, 255, 0.05); }
         .lb-rank { font-weight: 700; color: var(--accent); width: 40px; }
         .lb-name { font-weight: 600; }
         .lb-stat { font-variant-numeric: tabular-nums; color: var(--text-secondary); }
@@ -455,34 +494,34 @@
     <div class="nav-bar" id="navBar">
         <button class="nav-item active" id="navPlay" onclick="switchTab('landing')">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                <circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16"/>
+                <polygon points="6 3 20 12 6 21"/>
             </svg>
             <span class="nav-label">Play</span>
         </button>
         <button class="nav-item" id="navChallenge" onclick="switchTab('challenge-tab')">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                <path d="M6 6L18 18M18 6L6 18"/><path d="M3 12h18"/><path d="M12 3v18"/>
+                <path d="M6 9H4.5a2.5 2.5 0 010-5C7 4 7 7 7 7"/><path d="M18 9h1.5a2.5 2.5 0 000-5C17 4 17 7 17 7"/><path d="M4 22h16"/><path d="M10 22V10"/><path d="M14 22V10"/><rect x="6" y="7" width="12" height="3" rx="1"/>
             </svg>
             <span class="nav-label">Challenge</span>
         </button>
+        <button class="nav-item" id="navProfile" onclick="switchTab('profile')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-7 8-7s8 3 8 7"/>
+            </svg>
+            <span class="nav-label">Profile</span>
+        </button>
         <button class="nav-item" id="navLeaderboard" onclick="switchTab('leaderboard')">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                <path d="M12 2L15 10H23L17 15L19 23L12 18L5 23L7 15L1 10H9L12 2Z"/>
+                <path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/>
             </svg>
-            <span class="nav-label">Leaderboard</span>
+            <span class="nav-label">Hosts</span>
         </button>
         <button class="nav-item" id="navHistory" onclick="switchTab('history')">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
                 <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
             </svg>
             <span class="nav-label">History</span>
-            <span class="history-badge" id="historyBadge" style="display:none;background:var(--accent);color:#000;font-size:10px;font-weight:700;padding:1px 5px;border-radius:8px;position:absolute;top:4px;right:4px;">0</span>
-        </button>
-        <button class="nav-item" id="navProfile" onclick="switchTab('profile')">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                <circle cx="12" cy="8" r="4"/><path d="M2 20c0-4 4-8 10-8s10 4 10 8"/>
-            </svg>
-            <span class="nav-label">Profile</span>
+            <span class="history-badge" id="historyBadge" style="display:none;background:var(--accent);color:#0b1120;font-size:10px;font-weight:700;padding:1px 5px;border-radius:8px;position:absolute;top:4px;right:4px;">0</span>
         </button>
         <div class="persistent-balance" id="persistentBalance">
             <span class="bal-label">USDC</span>
@@ -499,22 +538,24 @@
         <div class="screen active" id="landing">
             <div class="landing-content">
                 <div class="landing-top-bar" id="walletDisconnected" style="display: none;">
+                    <div class="wallet-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M16 12h2"/></svg>
+                    </div>
                     <div class="username-display">Connect Wallet</div>
                     <div class="balance-display">—</div>
                 </div>
                 <div class="landing-top-bar" id="walletConnected" style="display: none;">
+                    <div class="wallet-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M16 12h2"/></svg>
+                    </div>
                     <div class="username-display" id="walletAddress">Player</div>
-                    <div class="balance-display">$<span id="walletBalance">50.00</span> USDC</div>
+                    <div class="balance-display">USDC: $<span id="walletBalance">50.00</span> <span id="topBarApproved" style="margin-left:8px;color:var(--text-secondary);font-size:12px;"></span></div>
                 </div>
 
                 <button class="connect-btn" id="connectBtn">Connect Wallet</button>
 
-                <div style="text-align: center; margin: 12px 0;">
-                    <button class="btn-secondary" style="width: 100%; max-width: 200px; padding: 12px 20px; font-size: 14px; border: 2px solid var(--border); background: transparent; color: var(--text-secondary); cursor: pointer; border-radius: 8px; transition: all 0.3s;" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--text-primary)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-secondary)'" onclick="playFree()">🎮 Practice Free</button>
-                </div>
-
                 <div id="walletConnectedOnly" style="display: none;">
-                    <div class="wallet-stats" id="walletStatsPanel">
+                    <div class="wallet-stats" id="walletStatsPanel" style="display:none;">
                         <div class="wallet-stats-row">
                             <span class="wallet-stats-label">USDC Balance</span>
                             <span class="wallet-stats-value accent" id="statsUsdcBalance">—</span>
@@ -529,17 +570,21 @@
                         </div>
                     </div>
 
-                    <h2 style="font-size: 18px; margin-bottom: 12px; text-align: center;">Select Tier</h2>
+                    <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 14px; text-align: center; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600;">Select Wager</div>
                     <div class="tier-grid">
+                        <div class="tier-card" data-tier="4"><div class="tier-amount">$0.10</div><div class="tier-count" id="tierCount4">—</div></div>
                         <div class="tier-card" data-tier="1"><div class="tier-amount">$1</div><div class="tier-count" id="tierCount1">—</div></div>
                         <div class="tier-card" data-tier="2"><div class="tier-amount">$10</div><div class="tier-count" id="tierCount2">—</div></div>
                         <div class="tier-card" data-tier="3"><div class="tier-amount">$100</div><div class="tier-count" id="tierCount3">—</div></div>
-                        <div class="tier-card" data-tier="4"><div class="tier-amount">$0.10</div><div class="tier-count" id="tierCount4">—</div></div>
                     </div>
 
-                    <div style="text-align: center; margin-top: 12px;">
-                        <button class="btn-secondary" style="width: 100%; max-width: 200px; padding: 10px 20px; font-size: 13px;" onclick="playFree()">Quick Match (Free)</button>
+                    <div style="text-align: center; margin-top: 4px;">
+                        <button class="play-now-btn" id="playNowBtn" onclick="playSelectedTier()">PLAY NOW</button>
                     </div>
+                </div>
+
+                <div style="text-align: center; margin: 8px 0;">
+                    <button class="play-free-btn" onclick="playFree()">Practice Free</button>
                 </div>
             </div>
         </div>
@@ -2598,104 +2643,120 @@
         // Also update the old approvalRemaining element if it exists
         var oldEl = document.getElementById('approvalRemaining');
         if (oldEl) oldEl.style.display = 'none';
+        // Update top bar approved count
+        var topBarEl = document.getElementById('topBarApproved');
+        if (topBarEl && window.PaymentAdapter?._tierToRaw) {
+            var tier4Raw2 = window.PaymentAdapter._tierToRaw(4);
+            var gamesAtLowest2 = Math.floor(delegated / tier4Raw2);
+            topBarEl.textContent = 'Games: ' + gamesAtLowest2;
+        }
     }
 
     document.querySelectorAll('.tier-card').forEach(card => {
-        card.addEventListener('click', async (e) => {
+        card.addEventListener('click', (e) => {
             const target = e.target.closest('.tier-card');
             if (!target) return;
             document.querySelectorAll('.tier-card').forEach(c => c.classList.remove('selected'));
             target.classList.add('selected');
             G.selectedTier = parseInt(target.dataset.tier);
-            G.onChainGameId = Date.now();
-            // Landing page tiers are always async/random mode
-            if (!G.selectedMode) G.selectedMode = 'random';
-
-            if (G.selectedMode === 'random') {
-                if (window.PaymentAdapter.mode !== 'none') {
-                    target.style.opacity = '0.5';
-                    document.querySelectorAll('.tier-card').forEach(c => c.style.pointerEvents = 'none');
-                    try {
-                        const prep = await window.PaymentAdapter.prepareGame(G.selectedTier, G.onChainGameId, 'host');
-                        if (!prep.ready) {
-                            showToast(prep.error || 'Failed to prepare game');
-                            target.style.opacity = '1';
-                            document.querySelectorAll('.tier-card').forEach(c => c.style.pointerEvents = 'auto');
-                            return;
-                        }
-                        G.createTxSig = prep.txSignature || null;
-                        updateApprovalDisplay();
-                    } catch (err) {
-                        showToast(err.message || 'Game setup failed');
-                        target.style.opacity = '1';
-                        document.querySelectorAll('.tier-card').forEach(c => c.style.pointerEvents = 'auto');
-                        return;
-                    }
-                    target.style.opacity = '1';
-                    document.querySelectorAll('.tier-card').forEach(c => c.style.pointerEvents = 'auto');
-                }
-
-                G.isHost = false;
-                G.asyncMode = true;
-                connectWS(() => {
-                    wsSend({
-                        type: 'queue', name: G.playerName, tier: G.selectedTier,
-                        wallet: G.walletAddress || null,
-                        paymentMode: window.PaymentAdapter.mode,
-                        onChainGameId: G.onChainGameId || null,
-                    });
-                });
-                if (window.PaymentAdapter.mode === 'solana') {
-                    document.getElementById('joinTitle').textContent = 'Finding Opponent...';
-                    document.getElementById('joinSubtitle').textContent = 'USDC locked — searching for a match';
-                    document.getElementById('joinStatus').textContent = 'Waiting for opponent...';
-                } else {
-                    document.getElementById('joinTitle').textContent = 'Joining Game...';
-                    document.getElementById('joinSubtitle').textContent = 'Finding you an opponent';
-                    document.getElementById('joinStatus').textContent = 'Matching...';
-                }
-                document.getElementById('joinStatus').className = 'connection-status waiting';
-                document.getElementById('cancelJoinBtn').style.display = 'inline-block';
-                showScreen('joining');
-            } else {
-                if (window.PaymentAdapter.mode !== 'none') {
-                    target.style.opacity = '0.5';
-                    document.querySelectorAll('.tier-card').forEach(c => c.style.pointerEvents = 'none');
-                    try {
-                        const prep = await window.PaymentAdapter.prepareGame(G.selectedTier, G.onChainGameId, 'host');
-                        if (!prep.ready) {
-                            alert(prep.error || 'Failed to prepare game');
-                            target.style.opacity = '1';
-                            document.querySelectorAll('.tier-card').forEach(c => c.style.pointerEvents = 'auto');
-                            return;
-                        }
-                        G.createTxSig = prep.txSignature || null;
-                        updateApprovalDisplay();
-                    } catch (err) {
-                        alert(err.message || 'Transaction failed');
-                        target.style.opacity = '1';
-                        document.querySelectorAll('.tier-card').forEach(c => c.style.pointerEvents = 'auto');
-                        return;
-                    }
-                    target.style.opacity = '1';
-                    document.querySelectorAll('.tier-card').forEach(c => c.style.pointerEvents = 'auto');
-                }
-
-                G.isHost = true;
-                G.asyncMode = false;
-                connectWS(() => {
-                    wsSend({
-                        type: 'create', name: G.playerName, tier: G.selectedTier,
-                        wallet: G.walletAddress || null,
-                        onChainGameId: G.onChainGameId,
-                        txSignature: G.createTxSig || null,
-                        paymentMode: window.PaymentAdapter.mode,
-                    });
-                });
-                showScreen('waiting');
-            }
+            // Landing page tiers: just select, PLAY NOW button starts the game
         });
     });
+
+    // PLAY NOW button handler — extracted from old tier-click-to-play logic
+    async function playSelectedTier() {
+        if (!G.selectedTier) {
+            showToast('Select a wager tier first');
+            return;
+        }
+        G.onChainGameId = Date.now();
+        if (!G.selectedMode) G.selectedMode = 'random';
+        const target = document.querySelector('.tier-card.selected');
+
+        if (G.selectedMode === 'random') {
+            if (window.PaymentAdapter.mode !== 'none') {
+                if (target) target.style.opacity = '0.5';
+                document.querySelectorAll('.tier-card').forEach(c => c.style.pointerEvents = 'none');
+                try {
+                    const prep = await window.PaymentAdapter.prepareGame(G.selectedTier, G.onChainGameId, 'host');
+                    if (!prep.ready) {
+                        showToast(prep.error || 'Failed to prepare game');
+                        if (target) target.style.opacity = '1';
+                        document.querySelectorAll('.tier-card').forEach(c => c.style.pointerEvents = 'auto');
+                        return;
+                    }
+                    G.createTxSig = prep.txSignature || null;
+                    updateApprovalDisplay();
+                } catch (err) {
+                    showToast(err.message || 'Game setup failed');
+                    if (target) target.style.opacity = '1';
+                    document.querySelectorAll('.tier-card').forEach(c => c.style.pointerEvents = 'auto');
+                    return;
+                }
+                if (target) target.style.opacity = '1';
+                document.querySelectorAll('.tier-card').forEach(c => c.style.pointerEvents = 'auto');
+            }
+
+            G.isHost = false;
+            G.asyncMode = true;
+            connectWS(() => {
+                wsSend({
+                    type: 'queue', name: G.playerName, tier: G.selectedTier,
+                    wallet: G.walletAddress || null,
+                    paymentMode: window.PaymentAdapter.mode,
+                    onChainGameId: G.onChainGameId || null,
+                });
+            });
+            if (window.PaymentAdapter.mode === 'solana') {
+                document.getElementById('joinTitle').textContent = 'Finding Opponent...';
+                document.getElementById('joinSubtitle').textContent = 'USDC locked — searching for a match';
+                document.getElementById('joinStatus').textContent = 'Waiting for opponent...';
+            } else {
+                document.getElementById('joinTitle').textContent = 'Joining Game...';
+                document.getElementById('joinSubtitle').textContent = 'Finding you an opponent';
+                document.getElementById('joinStatus').textContent = 'Matching...';
+            }
+            document.getElementById('joinStatus').className = 'connection-status waiting';
+            document.getElementById('cancelJoinBtn').style.display = 'inline-block';
+            showScreen('joining');
+        } else {
+            if (window.PaymentAdapter.mode !== 'none') {
+                if (target) target.style.opacity = '0.5';
+                document.querySelectorAll('.tier-card').forEach(c => c.style.pointerEvents = 'none');
+                try {
+                    const prep = await window.PaymentAdapter.prepareGame(G.selectedTier, G.onChainGameId, 'host');
+                    if (!prep.ready) {
+                        alert(prep.error || 'Failed to prepare game');
+                        if (target) target.style.opacity = '1';
+                        document.querySelectorAll('.tier-card').forEach(c => c.style.pointerEvents = 'auto');
+                        return;
+                    }
+                    G.createTxSig = prep.txSignature || null;
+                    updateApprovalDisplay();
+                } catch (err) {
+                    alert(err.message || 'Transaction failed');
+                    if (target) target.style.opacity = '1';
+                    document.querySelectorAll('.tier-card').forEach(c => c.style.pointerEvents = 'auto');
+                    return;
+                }
+                if (target) target.style.opacity = '1';
+                document.querySelectorAll('.tier-card').forEach(c => c.style.pointerEvents = 'auto');
+            }
+
+            G.isHost = true;
+            G.asyncMode = false;
+            connectWS(() => {
+                wsSend({
+                    type: 'create', name: G.playerName, tier: G.selectedTier,
+                    wallet: G.walletAddress || null,
+                    onChainGameId: G.onChainGameId,
+                    txSignature: G.createTxSig || null,
+                    paymentMode: window.PaymentAdapter.mode,
+                });
+            });
+            showScreen('waiting');
+        }
+    }
 
     document.getElementById('copyBtn').addEventListener('click', () => {
         const link = document.getElementById('shareLink').textContent;
@@ -3196,7 +3257,7 @@
         };
 
         document.getElementById('modeBadge').textContent = 'DEVNET — SOLANA';
-        document.getElementById('modeBadge').style.background = 'rgba(0, 212, 170, 0.9)';
+        document.getElementById('modeBadge').style.background = 'rgba(0, 200, 255, 0.9)';
 
         // Auto-reconnect wallet on page load if previously approved
         setTimeout(function() {
