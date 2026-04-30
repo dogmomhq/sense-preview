@@ -1877,8 +1877,15 @@
                 break;
             case 'chain-error':
                 console.error('[chain] Error:', msg.error);
-                document.getElementById('joinStatus').textContent = 'Chain error — playing off-chain';
-                document.getElementById('joinStatus').className = 'connection-status waiting';
+                if (window.PaymentAdapter && window.PaymentAdapter.mode === 'solana') {
+                    // Paid mode: chain failure = abort game, refund display
+                    showToast('On-chain game failed: ' + (msg.error || 'Transaction failed'));
+                    showScreen('landing');
+                    refreshAllBalances(1000);
+                } else {
+                    document.getElementById('joinStatus').textContent = 'Chain error — playing off-chain';
+                    document.getElementById('joinStatus').className = 'connection-status waiting';
+                }
                 break;
             case 'queue-failed':
                 console.error('[queue] Failed:', msg.error);
@@ -2357,18 +2364,31 @@
 
     async function doReplayQueue() {
         var isFree = G.selectedTier === 4;
+        var payMode = isFree ? 'none' : ((window.PaymentAdapter && window.PaymentAdapter.mode) || 'none');
+        console.log('[replay] tier=' + G.selectedTier + ' isFree=' + isFree + ' payMode=' + payMode);
+
         if (!isFree && window.PaymentAdapter && window.PaymentAdapter.mode !== 'none') {
             try {
                 G.onChainGameId = Date.now();
+                // Force fresh delegation read before prepareGame
+                if (window.PaymentAdapter._getDelegatedAmount) {
+                    var freshDelegation = await window.PaymentAdapter._getDelegatedAmount();
+                    G.approvalRemaining = freshDelegation;
+                    console.log('[replay] Fresh delegation before prepare:', freshDelegation);
+                }
                 const prep = await window.PaymentAdapter.prepareGame(G.selectedTier, G.onChainGameId, 'host');
+                console.log('[replay] prepareGame result:', JSON.stringify(prep));
                 if (!prep.ready) {
                     showToast(prep.error || 'Failed to prepare game');
+                    showScreen('landing');
                     return;
                 }
                 G.createTxSig = prep.txSignature || null;
                 updateApprovalDisplay();
             } catch (e) {
+                console.error('[replay] prepareGame error:', e);
                 showToast(e.message || 'Game setup failed');
+                showScreen('landing');
                 return;
             }
         } else if (isFree) {
@@ -2376,10 +2396,11 @@
             G.createTxSig = null;
         }
 
+        console.log('[replay] Sending queue: tier=' + G.selectedTier + ' paymentMode=' + payMode + ' onChainGameId=' + G.onChainGameId);
         wsSend({
             type: 'queue', name: G.playerName, tier: G.selectedTier,
             wallet: G.walletAddress || null,
-            paymentMode: isFree ? 'none' : ((window.PaymentAdapter && window.PaymentAdapter.mode) || 'none'),
+            paymentMode: payMode,
             onChainGameId: isFree ? null : (G.onChainGameId || null),
         });
         document.getElementById('joinStatus').textContent = 'Finding a match...';
