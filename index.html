@@ -199,34 +199,36 @@
             text-align: right; white-space: nowrap;
         }
 
-        .tier-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 32px; }
+        .tier-grid { display: flex; gap: 10px; margin-bottom: 32px; }
 
         .tier-card {
-            background: linear-gradient(145deg, #1a2940, #15203a);
-            border: 2.5px solid rgba(255,255,255,0.08);
-            border-radius: 16px; padding: 20px 8px; cursor: pointer;
+            background: linear-gradient(145deg, #1e2f4a, #182840);
+            border: 2px solid rgba(255,255,255,0.07);
+            border-radius: 14px; padding: 22px 8px; cursor: pointer;
             transition: all 0.3s ease; position: relative; overflow: hidden;
-            min-height: 90px; display: flex; flex-direction: column;
+            min-height: 80px; display: flex; flex-direction: column;
             justify-content: center; align-items: center;
-            aspect-ratio: 1 / 1;
+            flex: 1;
         }
-        .tier-card::before {
-            content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(0, 200, 255, 0.1), transparent);
-            transition: left 0.5s ease;
+        /* Glass reflection on unselected cards */
+        .tier-card::after {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 40%, transparent 60%);
+            pointer-events: none; border-radius: inherit;
         }
-        .tier-card:hover { border-color: rgba(0, 200, 255, 0.4); transform: translateY(-2px); }
-        .tier-card:hover::before { left: 100%; }
+        .tier-card:hover { border-color: rgba(0, 200, 255, 0.3); transform: translateY(-1px); }
         .tier-card.selected {
+            flex: 1.45;
             border-color: var(--accent);
-            background: linear-gradient(145deg, rgba(0, 200, 255, 0.12), rgba(0, 200, 255, 0.04));
-            box-shadow: 0 0 24px rgba(0, 200, 255, 0.35), 0 0 48px rgba(0, 200, 255, 0.15), inset 0 0 24px rgba(0, 200, 255, 0.08);
+            background: linear-gradient(145deg, rgba(0, 200, 255, 0.1), rgba(0, 100, 180, 0.08));
+            box-shadow: 0 0 20px rgba(0, 200, 255, 0.4), 0 0 40px rgba(0, 200, 255, 0.15), inset 0 0 20px rgba(0, 200, 255, 0.06);
         }
+        .tier-card.selected::after { display: none; }
 
-        .tier-amount { font-size: 26px; font-weight: 800; color: var(--text-primary); margin-bottom: 4px; }
-        .tier-card.selected .tier-amount { color: var(--accent); }
+        .tier-amount { font-size: 24px; font-weight: 800; color: var(--text-primary); margin-bottom: 2px; }
+        .tier-card.selected .tier-amount { font-size: 28px; color: var(--accent); }
         .tier-count { font-size: 11px; color: var(--text-secondary); letter-spacing: 0.3px; font-weight: 500; }
-        .tier-card.selected .tier-count { color: var(--accent); }
+        .tier-card.selected .tier-count { color: var(--accent); font-size: 12px; }
 
         .tier-check {
             position: absolute; top: 8px; right: 8px; width: 18px; height: 18px;
@@ -234,8 +236,7 @@
             display: flex; align-items: center; justify-content: center;
         }
         .tier-check svg { width: 10px; height: 10px; stroke: var(--text-secondary); stroke-width: 2.5; fill: none; }
-        .tier-card.selected .tier-check { background: var(--accent); }
-        .tier-card.selected .tier-check svg { stroke: #fff; }
+        .tier-card.selected .tier-check { display: none; }
 
         .wallet-stats { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; margin-bottom: 20px; }
         .wallet-stats-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; }
@@ -260,7 +261,7 @@
             border: none; color: #1a1a2e;
             padding: 20px 48px; border-radius: 32px;
             font-size: 20px; font-weight: 900; cursor: pointer;
-            transition: all 0.3s ease; margin: 0 0 20px;
+            transition: all 0.3s ease; margin: 8px 0 24px;
             width: 100%; max-width: 360px; letter-spacing: 2px;
             text-transform: uppercase;
             box-shadow: 0 6px 0 #8a8680, 0 8px 20px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.5);
@@ -642,7 +643,7 @@
                     </div>
                 </div>
 
-                <div style="text-align: center; margin: 4px 0;">
+                <div style="text-align: center; margin: 20px 0 0;">
                     <button class="play-free-btn" onclick="playFree()">Play Free</button>
                 </div>
             </div>
