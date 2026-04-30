@@ -2336,11 +2336,22 @@
 
     // PLAY AGAIN (SHARED)
     async function replayGame() {
+        // If WS is dead, reconnect and re-queue instead of silently going home
         if (!ws || ws.readyState !== WebSocket.OPEN) {
-            showScreen('landing');
+            console.log('[replay] WS dead, reconnecting...');
+            document.getElementById('joinStatus').textContent = 'Reconnecting...';
+            document.getElementById('joinStatus').className = 'connection-status waiting';
+            showScreen('joining');
+            connectWS(() => {
+                console.log('[replay] Reconnected, re-queuing');
+                doReplayQueue();
+            });
             return;
         }
+        doReplayQueue();
+    }
 
+    async function doReplayQueue() {
         if (window.PaymentAdapter && window.PaymentAdapter.mode !== 'none') {
             try {
                 G.onChainGameId = Date.now();
