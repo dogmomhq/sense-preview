@@ -1033,33 +1033,13 @@
     }
 
     function playFree() {
-        // If wallet is connected, do a real free match via server
+        // If wallet is connected, do a real free match via server — but NO chain calls
         if (G.walletConnected) {
             G.selectedMode = 'random';
-            G.selectedTier = 4; // Free tier
-            if (window.PaymentAdapter && window.PaymentAdapter.mode !== 'none') {
-                const target = document.querySelector('[data-tier="4"]');
-                target.style.opacity = '0.5';
-                document.querySelectorAll('.tier-card').forEach(c => c.style.pointerEvents = 'none');
-                window.PaymentAdapter.prepareGame(4, Date.now(), 'host').then(prep => {
-                    if (prep.ready) {
-                        G.onChainGameId = Date.now();
-                        G.createTxSig = prep.txSignature || null;
-                        queueForRandomMatch();
-                    } else {
-                        showToast(prep.error || 'Setup failed');
-                        target.style.opacity = '1';
-                        document.querySelectorAll('.tier-card').forEach(c => c.style.pointerEvents = 'auto');
-                    }
-                }).catch(err => {
-                    showToast(err.message || 'Setup failed');
-                    target.style.opacity = '1';
-                    document.querySelectorAll('.tier-card').forEach(c => c.style.pointerEvents = 'auto');
-                });
-            } else {
-                G.onChainGameId = Date.now();
-                queueForRandomMatch();
-            }
+            G.selectedTier = 4; // Free tier — never touch PaymentAdapter
+            G.onChainGameId = null;
+            G.createTxSig = null;
+            queueForRandomMatch();
             return;
         }
         // No wallet — launch offline practice mode
@@ -1148,12 +1128,13 @@
     function queueForRandomMatch() {
         G.isHost = false;
         G.asyncMode = true;
+        var isFree = G.selectedTier === 4;
         connectWS(() => {
             wsSend({
                 type: 'queue', name: G.playerName, tier: G.selectedTier,
                 wallet: G.walletAddress || null,
-                paymentMode: (window.PaymentAdapter && window.PaymentAdapter.mode) || 'none',
-                onChainGameId: G.onChainGameId || null,
+                paymentMode: isFree ? 'none' : ((window.PaymentAdapter && window.PaymentAdapter.mode) || 'none'),
+                onChainGameId: isFree ? null : (G.onChainGameId || null),
             });
         });
         document.getElementById('joinStatus').textContent = 'Finding a match...';
@@ -2375,7 +2356,8 @@
     }
 
     async function doReplayQueue() {
-        if (window.PaymentAdapter && window.PaymentAdapter.mode !== 'none') {
+        var isFree = G.selectedTier === 4;
+        if (!isFree && window.PaymentAdapter && window.PaymentAdapter.mode !== 'none') {
             try {
                 G.onChainGameId = Date.now();
                 const prep = await window.PaymentAdapter.prepareGame(G.selectedTier, G.onChainGameId, 'host');
@@ -2389,13 +2371,16 @@
                 showToast(e.message || 'Game setup failed');
                 return;
             }
+        } else if (isFree) {
+            G.onChainGameId = null;
+            G.createTxSig = null;
         }
 
         wsSend({
             type: 'queue', name: G.playerName, tier: G.selectedTier,
             wallet: G.walletAddress || null,
-            paymentMode: (window.PaymentAdapter && window.PaymentAdapter.mode) || 'none',
-            onChainGameId: G.onChainGameId || null,
+            paymentMode: isFree ? 'none' : ((window.PaymentAdapter && window.PaymentAdapter.mode) || 'none'),
+            onChainGameId: isFree ? null : (G.onChainGameId || null),
         });
         document.getElementById('joinStatus').textContent = 'Finding a match...';
         document.getElementById('joinStatus').className = 'connection-status waiting';
