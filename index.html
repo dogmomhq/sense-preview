@@ -2598,7 +2598,7 @@
             G.playerName = result.name;
             G.walletAddress = result.address || null;
             document.getElementById('walletDisconnected').style.display = 'none';
-            document.getElementById('walletConnected').style.display = 'block';
+            document.getElementById('walletConnected').style.display = 'flex';
             document.getElementById('walletAddress').textContent = result.displayAddress || result.name;
             document.getElementById('profileWalletAddr').textContent = result.displayAddress || result.name;
             document.getElementById('walletBalance').textContent = result.balance;
@@ -2892,7 +2892,7 @@
         G.walletAddress = null;
         G.playerName = null;
         document.getElementById('walletConnected').style.display = 'none';
-        document.getElementById('walletDisconnected').style.display = 'block';
+        document.getElementById('walletDisconnected').style.display = 'flex';
         document.getElementById('walletConnectedOnly').style.display = 'none';
         document.getElementById('connectBtn').style.display = 'block';
         document.getElementById('disconnectBtn').style.display = 'none';
@@ -2910,7 +2910,7 @@
                     G.playerName = result.name;
                     G.walletAddress = result.address || null;
                     document.getElementById('walletDisconnected').style.display = 'none';
-                    document.getElementById('walletConnected').style.display = 'block';
+                    document.getElementById('walletConnected').style.display = 'flex';
                     document.getElementById('walletAddress').textContent = result.displayAddress || result.name;
                     document.getElementById('walletBalance').textContent = result.balance;
             var sUB = document.getElementById('statsUsdcBalance'); if (sUB) sUB.textContent = '$' + result.balance;
