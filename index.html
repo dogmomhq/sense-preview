@@ -23,7 +23,7 @@
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(160deg, #0b1120 0%, #0e1a30 40%, #111f3a 100%);
+            background: linear-gradient(170deg, #0f1e38 0%, #132848 30%, #112040 60%, #0e1628 100%);
             color: var(--text-primary);
             overflow: hidden;
             height: 100vh;
@@ -32,13 +32,9 @@
         }
         body::before {
             content: ''; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-            background:
-                linear-gradient(45deg, rgba(255,255,255,0.035) 25%, transparent 25%),
-                linear-gradient(-45deg, rgba(255,255,255,0.035) 25%, transparent 25%),
-                linear-gradient(45deg, transparent 75%, rgba(255,255,255,0.035) 75%),
-                linear-gradient(-45deg, transparent 75%, rgba(255,255,255,0.035) 75%);
-            background-size: 80px 80px;
-            background-position: 0 0, 0 40px, 40px -40px, -40px 0px;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 390 844' preserveAspectRatio='xMidYMid slice'%3E%3Crect x='120' y='-60' width='280' height='280' transform='rotate(45 260 80)' fill='%23ffffff' opacity='0.035'/%3E%3Crect x='0' y='180' width='340' height='340' transform='rotate(45 170 350)' fill='%23ffffff' opacity='0.025'/%3E%3Crect x='100' y='450' width='300' height='300' transform='rotate(45 250 600)' fill='%23ffffff' opacity='0.02'/%3E%3C/svg%3E");
+            background-size: cover;
+            background-position: center;
             pointer-events: none; z-index: 0;
         }
         .container, .nav-bar, .preview-badge, .persistent-balance, .toast, .countdown-overlay { position: relative; z-index: 1; }
@@ -69,8 +65,8 @@
         .nav-bar {
             position: fixed; left: 0; right: 0;
             display: flex; justify-content: space-around; align-items: center;
-            background: linear-gradient(to bottom, rgba(20, 35, 60, 0.98), rgba(11, 17, 32, 0.95));
-            border-top: 1px solid rgba(0, 200, 255, 0.1);
+            background: linear-gradient(to bottom, #1a2540 0%, #141b2d 100%);
+            border-top: 1px solid rgba(100, 140, 180, 0.2);
             backdrop-filter: blur(12px); z-index: 150;
             padding: 0; gap: 0;
         }
@@ -147,10 +143,12 @@
 
         .landing-top-bar {
             display: flex; align-items: center;
-            background: var(--bg-secondary); border: 1px solid var(--border);
+            background: rgba(25, 42, 68, 0.6);
+            border: 1px solid rgba(80, 120, 170, 0.2);
             border-radius: 18px; padding: 22px 24px;
             gap: 0; width: 100%; max-width: 500px;
             margin-bottom: 48px;
+            backdrop-filter: blur(8px);
         }
 
         .landing-top-bar .wallet-icon {
@@ -204,18 +202,18 @@
         .tier-grid { display: flex; gap: 12px; margin-bottom: 40px; width: 100%; }
 
         .tier-card {
-            background: linear-gradient(145deg, #1e2f4a, #182840);
-            border: 2px solid rgba(255,255,255,0.07);
+            background: linear-gradient(150deg, #2a3c54 0%, #232f49 100%);
+            border: 2px solid #28405c;
             border-radius: 18px; padding: 28px 8px; cursor: pointer;
             transition: all 0.3s ease; position: relative; overflow: hidden;
             min-height: 100px; display: flex; flex-direction: column;
             justify-content: center; align-items: center;
             flex: 1; aspect-ratio: 1 / 1.1;
         }
-        /* Glass reflection on unselected cards */
+        /* Glass reflection on unselected cards — diagonal shine from top-left */
         .tier-card::after {
             content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
-            background: linear-gradient(135deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.03) 35%, transparent 55%);
+            background: linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.04) 30%, transparent 50%);
             pointer-events: none; border-radius: inherit;
         }
         .tier-card:hover { border-color: rgba(0, 200, 255, 0.3); transform: translateY(-1px); }
@@ -259,20 +257,20 @@
         .connect-btn:disabled { opacity: 0.6; cursor: not-allowed; display: none; }
 
         .play-now-btn {
-            background: linear-gradient(180deg, #faf8f4 0%, #f0ede6 30%, #e4e0d8 60%, #d8d4cc 100%);
-            border: none; color: #1a1a2e;
+            background: linear-gradient(180deg, #eaf5fc 0%, #e0eef8 30%, #d4e5f2 60%, #c8dcea 100%);
+            border: none; color: #1a1e2e;
             padding: 22px 48px; border-radius: 36px;
             font-size: 22px; font-weight: 900; cursor: pointer;
             transition: all 0.3s ease; margin: 8px 0 36px;
-            width: 100%; max-width: 340px; letter-spacing: 3px;
+            width: 100%; max-width: 380px; letter-spacing: 3px;
             text-transform: uppercase;
-            box-shadow: 0 7px 0 #9a9690, 0 9px 24px rgba(0,0,0,0.45), inset 0 2px 0 rgba(255,255,255,0.6);
+            box-shadow: 0 7px 0 #8ba0bd, 0 9px 24px rgba(0,0,0,0.5), inset 0 2px 0 rgba(255,255,255,0.7);
         }
-        .play-now-btn:hover { transform: translateY(-2px); box-shadow: 0 9px 0 #9a9690, 0 11px 30px rgba(0,0,0,0.5), inset 0 2px 0 rgba(255,255,255,0.6); }
-        .play-now-btn:active { transform: translateY(2px); box-shadow: 0 3px 0 #9a9690, 0 4px 8px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.5); }
+        .play-now-btn:hover { transform: translateY(-2px); box-shadow: 0 9px 0 #8ba0bd, 0 11px 30px rgba(0,0,0,0.55), inset 0 2px 0 rgba(255,255,255,0.7); }
+        .play-now-btn:active { transform: translateY(2px); box-shadow: 0 3px 0 #8ba0bd, 0 4px 8px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.5); }
 
         .play-free-btn {
-            background: transparent; border: 2px solid rgba(255,255,255,0.15);
+            background: transparent; border: 1.5px solid rgba(100,140,180,0.25);
             color: var(--text-secondary); padding: 14px 48px; border-radius: 32px;
             font-size: 15px; font-weight: 600; cursor: pointer;
             transition: all 0.3s ease; width: 100%; max-width: 320px;
