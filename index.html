@@ -27,7 +27,7 @@
             color: var(--text-primary);
             overflow: hidden;
             height: 100vh;
-            padding-bottom: 70px;
+            padding-bottom: 80px;
             position: relative;
         }
         body::before {
@@ -37,8 +37,8 @@
                 linear-gradient(-45deg, rgba(255,255,255,0.008) 25%, transparent 25%),
                 linear-gradient(45deg, transparent 75%, rgba(255,255,255,0.008) 75%),
                 linear-gradient(-45deg, transparent 75%, rgba(255,255,255,0.008) 75%);
-            background-size: 60px 60px;
-            background-position: 0 0, 0 30px, 30px -30px, -30px 0px;
+            background-size: 80px 80px;
+            background-position: 0 0, 0 40px, 40px -40px, -40px 0px;
             pointer-events: none; z-index: 0;
         }
         .container, .nav-bar, .preview-badge, .persistent-balance, .toast, .countdown-overlay { position: relative; z-index: 1; }
@@ -69,13 +69,13 @@
         .nav-bar {
             position: fixed; left: 0; right: 0;
             display: flex; justify-content: space-around; align-items: center;
-            background: rgba(11, 17, 32, 0.95); border-top: 1px solid var(--border);
+            background: linear-gradient(to bottom, rgba(20, 35, 60, 0.98), rgba(11, 17, 32, 0.95)); border-top: 1px solid rgba(0, 200, 255, 0.1);
             backdrop-filter: blur(12px); z-index: 150;
             padding: 0; gap: 0;
         }
 
         @media (max-width: 768px) {
-            .nav-bar { bottom: 0; height: 64px; flex-direction: row; }
+            .nav-bar { bottom: 0; height: 74px; flex-direction: row; }
             .nav-bar.hidden { display: none; }
         }
 
@@ -88,7 +88,7 @@
         .nav-item {
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             background: none; border: none; cursor: pointer; color: var(--text-secondary);
-            transition: all 0.3s ease; padding: 6px 12px; font-size: 10px; font-weight: 500;
+            transition: all 0.3s ease; padding: 6px 12px; font-size: 12px; font-weight: 500;
             text-transform: none; letter-spacing: 0.2px; position: relative;
             gap: 4px;
         }
@@ -98,7 +98,7 @@
                 border-radius: 6px; }
         }
 
-        .nav-item svg { width: 22px; height: 22px; stroke-width: 1.5; }
+        .nav-item svg { width: 24px; height: 24px; stroke-width: 1.5; }
 
         .nav-item.active {
             color: var(--accent);
@@ -133,7 +133,7 @@
 
         @media (max-width: 768px) {
             .persistent-balance {
-                position: fixed; bottom: 64px; left: 0; right: 0;
+                position: fixed; bottom: 74px; left: 0; right: 0;
                 justify-content: center; gap: 6px;
                 background: rgba(11, 17, 32, 0.95); border-top: 1px solid var(--border);
                 padding: 5px 12px; margin-left: 0; font-size: 11px;
@@ -164,7 +164,7 @@
         }
 
         .landing-top-bar .username-display {
-            color: var(--text-primary); font-size: 14px; font-weight: 700;
+            color: var(--text-primary); font-size: 16px; font-weight: 700;
             text-align: left; font-family: 'Courier New', monospace;
             line-height: 1.2; min-width: 70px;
         }
@@ -178,20 +178,20 @@
             text-align: center; line-height: 1.3;
         }
         .landing-top-bar .balance-col .bal-label-top {
-            font-size: 12px; color: var(--text-secondary); font-weight: 500;
+            font-size: 13px; color: var(--text-secondary); font-weight: 500;
         }
         .landing-top-bar .balance-col .bal-value {
-            font-size: 16px; font-weight: 700; color: var(--accent);
+            font-size: 18px; font-weight: 700; color: var(--accent);
         }
 
         .landing-top-bar .approved-col {
             text-align: center; line-height: 1.3;
         }
         .landing-top-bar .approved-col .approved-label {
-            font-size: 12px; color: var(--text-secondary); font-weight: 500;
+            font-size: 13px; color: var(--text-secondary); font-weight: 500;
         }
         .landing-top-bar .approved-col .approved-value {
-            font-size: 16px; font-weight: 700; color: var(--text-primary);
+            font-size: 18px; font-weight: 700; color: var(--text-primary);
         }
 
         .landing-top-bar .balance-display {
@@ -554,26 +554,26 @@
             <span class="nav-label">Play</span>
         </button>
         <button class="nav-item" id="navChallenge" onclick="switchTab('challenge-tab')">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                <path d="M6 9H4.5a2.5 2.5 0 010-5C7 4 7 7 7 7"/><path d="M18 9h1.5a2.5 2.5 0 000-5C17 4 17 7 17 7"/><path d="M4 22h16"/><path d="M10 22V10"/><path d="M14 22V10"/><rect x="6" y="7" width="12" height="3" rx="1"/>
+            <svg viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                <path d="M5 3h14v2H5zm0 2v4c0 1.1.4 2 1 2.7V20h3v-4h6v4h3v-8.3c.6-.7 1-1.6 1-2.7V5h-2v4c0 .6-.4 1-1 1h-2V5H9v5H7c-.6 0-1-.4-1-1V5H5zM3 5a2 2 0 00-1 3.5V10l2-1V5H3zm18 0v4l2 1V8.5A2 2 0 0021 5z"/>
             </svg>
             <span class="nav-label">Challenge</span>
         </button>
         <button class="nav-item" id="navProfile" onclick="switchTab('profile')">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-7 8-7s8 3 8 7"/>
+            <svg viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                <circle cx="12" cy="8" r="4.5"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8H4z"/>
             </svg>
             <span class="nav-label">Profile</span>
         </button>
         <button class="nav-item" id="navLeaderboard" onclick="switchTab('leaderboard')">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                <path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/>
+            <svg viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                <circle cx="9" cy="7" r="4"/><path d="M2 21v-2c0-2.2 1.8-4 4-4h6c2.2 0 4 1.8 4 4v2H2z"/><circle cx="17" cy="7" r="3"/><path d="M22 21v-2c0-1.5-.8-2.8-2-3.5-.4.3-.8.6-1.3.8 1.3.7 2.3 2 2.3 3.7v1h1z"/>
             </svg>
             <span class="nav-label">Hosts</span>
         </button>
         <button class="nav-item" id="navHistory" onclick="switchTab('history')">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+            <svg viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm0 18c-4.4 0-8-3.6-8-8s3.6-8 8-8 8 3.6 8 8-3.6 8-8 8zm.5-13H11v6l5.2 3.1.8-1.3-4.5-2.7V7z"/>
             </svg>
             <span class="nav-label">History</span>
             <span class="history-badge" id="historyBadge" style="display:none;background:var(--accent);color:#0b1120;font-size:10px;font-weight:700;padding:1px 5px;border-radius:8px;position:absolute;top:2px;right:2px;">0</span>
