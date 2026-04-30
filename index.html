@@ -1899,6 +1899,12 @@
                 document.getElementById('joinStatus').textContent = 'Chain error — playing off-chain';
                 document.getElementById('joinStatus').className = 'connection-status waiting';
                 break;
+            case 'queue-failed':
+                console.error('[queue] Failed:', msg.error);
+                showToast('Game creation failed: ' + (msg.error || 'Unknown error'));
+                showScreen('landing');
+                refreshAllBalances(1000);
+                break;
             case 'chain-complete':
                 console.log('[chain] Chain complete for', msg.matchId);
                 refreshAllBalances(2000);
