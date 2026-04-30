@@ -1666,7 +1666,13 @@
             keepaliveInterval = setInterval(() => {
                 if (ws && ws.readyState === WebSocket.OPEN) wsSend({ type: 'keepalive' });
             }, 20000);
-            callback();
+            // Re-send wallet verification on every new WS connection
+            if (G._walletAuth) {
+                ws.send(JSON.stringify({ type: 'verify-wallet', ...G._walletAuth }));
+                setTimeout(callback, 100);
+            } else {
+                callback();
+            }
         };
         ws.onclose = () => { console.log('WS closed'); if (keepaliveInterval) { clearInterval(keepaliveInterval); keepaliveInterval = null; } handleDisconnect(); };
         ws.onerror = (e) => { console.error('WS error', e); };
@@ -1693,6 +1699,10 @@
                 ws.onopen = () => {
                     console.log('Reconnected');
                     G._reconnecting = false;
+                    // Re-send wallet verification on reconnect
+                    if (G._walletAuth) {
+                        ws.send(JSON.stringify({ type: 'verify-wallet', ...G._walletAuth }));
+                    }
                     ws.onclose = () => { console.log('WS closed'); handleDisconnect(); };
                     ws.onerror = (e) => { console.error('WS error', e); };
                     ws.onmessage = (e) => {
@@ -1857,6 +1867,22 @@
                 const questionWait = setTimeout(() => {
                     if (G.screen === 'results') showToast('Waiting for next question...');
                 }, 2000);
+                break;
+            case 'error':
+                console.error('[server] Error:', msg.message);
+                showToast(msg.message || 'Server error');
+                // If we're on the joining screen, go back to landing
+                if (G.screen === 'joining') {
+                    showScreen('landing');
+                }
+                break;
+            case 'verify-wallet-result':
+                if (msg.success) {
+                    console.log('[auth] Wallet verified:', msg.wallet);
+                } else {
+                    console.error('[auth] Wallet verification failed:', msg.error);
+                    showToast('Wallet verification failed — reconnect wallet');
+                }
                 break;
         }
     }
@@ -3078,7 +3104,9 @@
               const encoded = new TextEncoder().encode(authMsg);
               const signResult = await provider.signMessage(encoded, 'utf8');
               const sigBase64 = btoa(String.fromCharCode(...signResult.signature));
-              // Send verification to server
+              // Store auth so we can re-send on each new WS connection
+              G._walletAuth = { wallet: address, signature: sigBase64, message: authMsg };
+              // Send verification to server if WS is already open
               if (ws && ws.readyState === WebSocket.OPEN) {
                 ws.send(JSON.stringify({ type: 'verify-wallet', wallet: address, signature: sigBase64, message: authMsg }));
               }
